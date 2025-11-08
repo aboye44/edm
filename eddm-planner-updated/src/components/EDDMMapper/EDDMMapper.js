@@ -1212,7 +1212,7 @@ function EDDMMapper() {
                   </svg>
                   <div className="badge-content">
                     <div className="badge-stat">5.0 Rating</div>
-                    <div className="badge-label">Google Reviews</div>
+                    <div className="badge-label">on Google</div>
                   </div>
                 </div>
 
@@ -1231,8 +1231,8 @@ function EDDMMapper() {
                     <path d="M18 6H2a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2zM2 4h16v1H2V4zm0-2h16v1H2V2z"/>
                   </svg>
                   <div className="badge-content">
-                    <div className="badge-stat">50M+ Delivered</div>
-                    <div className="badge-label">Mailers Sent</div>
+                    <div className="badge-stat">50M+ Mailers</div>
+                    <div className="badge-label">Delivered</div>
                   </div>
                 </div>
               </div>
