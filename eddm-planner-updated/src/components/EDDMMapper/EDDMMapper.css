@@ -3212,7 +3212,7 @@ html {
 /* Hero Section - Bold Gradient - OVERRIDE */
 .eddm-hero {
   position: relative;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background: linear-gradient(135deg, #2C3E7C 0%, #4A90E2 50%, #D32F2F 100%);
   padding: 80px var(--space-md) 100px;
   overflow: hidden;
 }
@@ -3222,7 +3222,7 @@ html {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(246, 92, 139, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(44, 62, 124, 0.1) 0%, rgba(211, 47, 47, 0.1) 100%);
   animation: gradient-shift 15s ease infinite;
   z-index: 0;
 }
@@ -3351,22 +3351,22 @@ html {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #667eea, #764ba2);
+  background: linear-gradient(90deg, #2C3E7C, #4A90E2);
   transform: translateX(-100%);
   transition: transform 0.3s ease;
 }
 
 /* Active Step - OVERRIDE */
 .step-indicator.active .step-circle {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2C3E7C 0%, #4A90E2 100%);
   color: var(--white);
   border: none;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 24px rgba(44, 62, 124, 0.4);
   transform: scale(1.05);
 }
 
 .step-indicator.active .step-label {
-  color: #667eea;
+  color: #2C3E7C;
   font-weight: 700;
 }
 
@@ -3435,7 +3435,7 @@ html {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+  background: linear-gradient(90deg, #2C3E7C, #4A90E2, #D32F2F);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.3s ease;
@@ -3443,8 +3443,8 @@ html {
 
 .finder-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04);
-  border-color: rgba(102, 126, 234, 0.2);
+  box-shadow: 0 12px 40px rgba(44, 62, 124, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04);
+  border-color: rgba(44, 62, 124, 0.2);
 }
 
 .finder-card:hover::before {
@@ -3460,20 +3460,20 @@ html {
 .finder-card-icon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2C3E7C 0%, #4A90E2 100%);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(44, 62, 124, 0.3);
   transition: all 0.3s ease;
 }
 
 .finder-card:hover .finder-card-icon {
   transform: scale(1.05) rotate(5deg);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 6px 16px rgba(44, 62, 124, 0.4);
 }
 
 .finder-card-title {
@@ -3496,8 +3496,8 @@ html {
 
 .finder-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  border-color: #4A90E2;
+  box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.1);
   background: #fafbfc;
 }
 
@@ -3525,12 +3525,12 @@ html {
 
 .finder-select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  border-color: #4A90E2;
+  box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.1);
 }
 
 .finder-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2C3E7C 0%, #D32F2F 100%);
   color: var(--white);
   border: none;
   padding: 14px 28px;
@@ -3539,7 +3539,7 @@ html {
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(44, 62, 124, 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -3555,7 +3555,7 @@ html {
 
 .finder-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 20px rgba(44, 62, 124, 0.4);
 }
 
 .finder-btn:hover:not(:disabled)::before {
@@ -3599,7 +3599,7 @@ html {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(102, 126, 234, 0.03) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(44, 62, 124, 0.03) 1px, transparent 1px);
   background-size: 30px 30px;
   z-index: 0;
 }
@@ -3641,14 +3641,14 @@ html {
 
 .trust-footer-item:hover {
   transform: translateY(-6px);
-  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.15);
-  border-color: rgba(102, 126, 234, 0.2);
+  box-shadow: 0 12px 32px rgba(44, 62, 124, 0.15);
+  border-color: rgba(44, 62, 124, 0.2);
 }
 
 .trust-footer-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2C3E7C 0%, #4A90E2 100%);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -3660,7 +3660,7 @@ html {
 
 .trust-footer-item:hover .trust-footer-icon {
   transform: scale(1.1) rotate(5deg);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 6px 16px rgba(44, 62, 124, 0.4);
 }
 
 .trust-footer-text h4 {
