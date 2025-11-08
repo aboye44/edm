@@ -1212,7 +1212,6 @@ function EDDMMapper() {
                   </svg>
                   <div className="badge-content">
                     <div className="badge-stat">5.0 Rating</div>
-                    <div className="badge-label">on Google</div>
                   </div>
                 </div>
 
