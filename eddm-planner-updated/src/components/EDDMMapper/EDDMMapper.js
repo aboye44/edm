@@ -539,7 +539,7 @@ function EDDMMapper() {
         setGeocodeError('Could not get location for this address');
       }
     }
-  }, [routes.length]);
+  }, []);
 
   // Find routes for the selected address (handles both autocomplete and manual entry)
   const geocodeAddress = useCallback(async (e) => {
@@ -617,7 +617,7 @@ function EDDMMapper() {
     } finally {
       setGeocoding(false);
     }
-  }, [locationAddress, selectedRadius, fetchRoutesForRadius, routes.length, circleCenter, centerZip]);
+  }, [locationAddress, selectedRadius, fetchRoutesForRadius, circleCenter, centerZip]);
 
   // Calculate routes within the selected radius
   // FIXED: Now checks if route POLYGON intersects radius, not just center point
