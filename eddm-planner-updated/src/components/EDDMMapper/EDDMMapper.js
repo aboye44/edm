@@ -1198,10 +1198,12 @@ function EDDMMapper() {
 
         {/* Content wrapper - pushes below fixed header */}
         <div className="eddm-content">
-          {/* Hero Section - Navy background */}
+          {/* Hero Section - Modern Gradient */}
           <section className="eddm-hero">
-            <h1>EDDM Campaign Planner</h1>
-            <p>Enter any U.S. ZIP code to see carrier routes, select your target areas, and get instant pricing</p>
+            <div className="hero-content">
+              <h1 className="hero-title">EDDM Campaign Planner</h1>
+              <p className="hero-subtitle">Plan, target, and launch your Every Door Direct Mail campaign with precision. Get instant pricing and reach thousands of households in minutes.</p>
+            </div>
           </section>
 
           {/* Step Indicators */}
@@ -1210,7 +1212,7 @@ function EDDMMapper() {
               {/* Step 1: Enter ZIP Code */}
               <div className={`step-indicator ${routes.length > 0 ? 'completed' : 'active'}`}>
                 <div className="step-circle">
-                  {routes.length > 0 ? '✓' : '1'}
+                  <span className="step-number">{routes.length > 0 ? '✓' : '1'}</span>
                 </div>
                 <div className="step-label">Enter ZIP Code</div>
               </div>
@@ -1220,7 +1222,7 @@ function EDDMMapper() {
               {/* Step 2: Select Routes */}
               <div className={`step-indicator ${selectedRoutes.length > 0 ? 'completed' : routes.length > 0 ? 'active' : 'inactive'}`}>
                 <div className="step-circle">
-                  {selectedRoutes.length > 0 ? '✓' : '2'}
+                  <span className="step-number">{selectedRoutes.length > 0 ? '✓' : '2'}</span>
                 </div>
                 <div className="step-label">Select Routes</div>
               </div>
@@ -1229,7 +1231,9 @@ function EDDMMapper() {
 
               {/* Step 3: Get Pricing */}
               <div className={`step-indicator ${selectedRoutes.length > 0 ? 'active' : 'inactive'}`}>
-                <div className="step-circle">3</div>
+                <div className="step-circle">
+                  <span className="step-number">3</span>
+                </div>
                 <div className="step-label">Get Pricing</div>
               </div>
             </div>
@@ -1240,9 +1244,14 @@ function EDDMMapper() {
             <div className="route-finder-grid">
               {/* ZIP Search Section */}
               <div className="finder-card">
-                <div className="finder-card-label">
-                  <span className="finder-card-icon">📍</span>
-                  Search by ZIP
+                <div className="finder-card-header">
+                  <div className="finder-card-icon">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M10 2C7.24 2 5 4.24 5 7C5 10.5 10 16 10 16C10 16 15 10.5 15 7C15 4.24 12.76 2 10 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="10" cy="7" r="2" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                  <h3 className="finder-card-title">Search by ZIP</h3>
                 </div>
                 <form onSubmit={handleZipSearch}>
                   <input
@@ -1267,9 +1276,15 @@ function EDDMMapper() {
 
               {/* Coverage Area Section */}
               <div className="finder-card">
-                <div className="finder-card-label">
-                  <span className="finder-card-icon">📍</span>
-                  Coverage Area
+                <div className="finder-card-header">
+                  <div className="finder-card-icon">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="2"/>
+                      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2"/>
+                      <path d="M10 3V1M10 19V17M17 10H19M1 10H3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <h3 className="finder-card-title">Coverage Area</h3>
                 </div>
                 <form onSubmit={geocodeAddress}>
                   <Autocomplete
@@ -1745,28 +1760,49 @@ function EDDMMapper() {
               <h3 className="trust-footer-title">Why Choose MPA for Your EDDM Campaign</h3>
               <div className="trust-footer-grid">
                 <div className="trust-footer-item">
-                  <div className="trust-footer-icon">🏆</div>
+                  <div className="trust-footer-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <path d="M16 4L19.09 13.26L28.94 13.26L20.87 19.22L23.96 28.48L16 22.52L8.04 28.48L11.13 19.22L3.06 13.26L12.91 13.26L16 4Z" fill="currentColor"/>
+                    </svg>
+                  </div>
                   <div className="trust-footer-text">
                     <h4>USPS Approved Partner</h4>
                     <p>Official USPS carrier route data for accurate targeting</p>
                   </div>
                 </div>
                 <div className="trust-footer-item">
-                  <div className="trust-footer-icon">💰</div>
+                  <div className="trust-footer-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <path d="M12 6C12 6 8 10 8 14C8 16.21 9.79 18 12 18C14.21 18 16 16.21 16 14C16 10 12 6 12 6Z" fill="currentColor"/>
+                      <path d="M20 12C20 12 17 15 17 18C17 19.66 18.34 21 20 21C21.66 21 23 19.66 23 18C23 15 20 12 20 12Z" fill="currentColor"/>
+                      <rect x="4" y="22" width="24" height="6" rx="1" fill="currentColor"/>
+                    </svg>
+                  </div>
                   <div className="trust-footer-text">
                     <h4>Volume Discounts</h4>
                     <p>Best rates guaranteed with transparent pricing</p>
                   </div>
                 </div>
                 <div className="trust-footer-item">
-                  <div className="trust-footer-icon">📦</div>
+                  <div className="trust-footer-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <rect x="6" y="8" width="20" height="18" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+                      <path d="M6 12H26" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M16 8V6C16 5.45 16.45 5 17 5H21C21.55 5 22 5.45 22 6V8" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                  </div>
                   <div className="trust-footer-text">
                     <h4>All-Inclusive Service</h4>
                     <p>Printing, postage, and delivery - all handled for you</p>
                   </div>
                 </div>
                 <div className="trust-footer-item">
-                  <div className="trust-footer-icon">⚡</div>
+                  <div className="trust-footer-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <path d="M16 6L18 14L26 14L20 19L22 27L16 22L10 27L12 19L6 14L14 14L16 6Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+                      <circle cx="16" cy="16" r="3" fill="currentColor"/>
+                    </svg>
+                  </div>
                   <div className="trust-footer-text">
                     <h4>Fast Turnaround</h4>
                     <p>2-3 week delivery from approval to mailboxes</p>
