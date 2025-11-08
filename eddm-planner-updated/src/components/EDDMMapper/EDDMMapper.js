@@ -1203,6 +1203,39 @@ function EDDMMapper() {
             <div className="hero-content">
               <h1 className="hero-title">EDDM Campaign Planner</h1>
               <p className="hero-subtitle">Plan, target, and launch your Every Door Direct Mail campaign with precision. Get instant pricing and reach thousands of households in minutes.</p>
+
+              {/* Social Proof Badges */}
+              <div className="hero-badges">
+                <div className="hero-badge">
+                  <svg className="badge-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                  </svg>
+                  <div className="badge-content">
+                    <div className="badge-stat">5.0 Rating</div>
+                    <div className="badge-label">Google Reviews</div>
+                  </div>
+                </div>
+
+                <div className="hero-badge">
+                  <svg className="badge-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 0l2.5 7.5h7.5l-6 4.5 2.5 7.5-6-4.5-6 4.5 2.5-7.5-6-4.5h7.5z"/>
+                  </svg>
+                  <div className="badge-content">
+                    <div className="badge-stat">Best of Florida</div>
+                    <div className="badge-label">2025 Printing</div>
+                  </div>
+                </div>
+
+                <div className="hero-badge">
+                  <svg className="badge-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M18 6H2a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2zM2 4h16v1H2V4zm0-2h16v1H2V2z"/>
+                  </svg>
+                  <div className="badge-content">
+                    <div className="badge-stat">50M+ Delivered</div>
+                    <div className="badge-label">Mailers Sent</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
