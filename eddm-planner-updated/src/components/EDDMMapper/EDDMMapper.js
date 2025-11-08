@@ -1606,15 +1606,15 @@ function EDDMMapper() {
                             <div className="cost-breakdown">
                               <div className="breakdown-item">
                                 <span className="breakdown-label">• Printing</span>
-                                <span className="breakdown-value">${pricing.printing.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                <span className="breakdown-value">${(pricing.printCost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                               </div>
                               <div className="breakdown-item">
                                 <span className="breakdown-label">• Postage</span>
-                                <span className="breakdown-value">${pricing.postage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                <span className="breakdown-value">${(pricing.postageCost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                               </div>
                               <div className="breakdown-item breakdown-item-total">
                                 <span className="breakdown-label">• Total per piece</span>
-                                <span className="breakdown-value">${pricing.costPerPiece.toFixed(2)}</span>
+                                <span className="breakdown-value">${((pricing.total || 0) / (pricing.addresses || 1)).toFixed(2)}</span>
                               </div>
                             </div>
                           </div>
