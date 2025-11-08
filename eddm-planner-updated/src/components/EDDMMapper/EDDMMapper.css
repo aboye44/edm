@@ -298,6 +298,73 @@
 }
 
 /* ========================================
+   TRUST BADGES - Early Credibility
+   ======================================== */
+
+.trust-badges-top {
+  background: var(--light-gray);
+  padding: var(--space-lg) var(--space-md);
+  border-bottom: 1px solid var(--border-gray);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.trust-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--white);
+  border-radius: 8px;
+  border: 1px solid var(--border-gray);
+  transition: all var(--transition-base);
+}
+
+.trust-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--mpa-light-blue);
+}
+
+.trust-badge-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.trust-badge-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Mobile: 2x2 grid */
+@media (max-width: 768px) {
+  .trust-badges-top {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .trust-badge {
+    padding: var(--space-sm);
+  }
+
+  .trust-badge-icon {
+    font-size: 28px;
+  }
+
+  .trust-badge-text {
+    font-size: 12px;
+  }
+}
+
+/* ========================================
    ROUTE FINDER CARD - Floating White Card
    ======================================== */
 

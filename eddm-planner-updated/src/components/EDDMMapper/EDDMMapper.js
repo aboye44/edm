@@ -1235,6 +1235,26 @@ function EDDMMapper() {
             </div>
           </div>
 
+          {/* Trust Badges - Build credibility early */}
+          <div className="trust-badges-top">
+            <div className="trust-badge">
+              <div className="trust-badge-icon">🏆</div>
+              <div className="trust-badge-text">USPS Approved</div>
+            </div>
+            <div className="trust-badge">
+              <div className="trust-badge-icon">⚡</div>
+              <div className="trust-badge-text">2-3 Week Delivery</div>
+            </div>
+            <div className="trust-badge">
+              <div className="trust-badge-icon">💰</div>
+              <div className="trust-badge-text">Volume Discounts</div>
+            </div>
+            <div className="trust-badge">
+              <div className="trust-badge-icon">📦</div>
+              <div className="trust-badge-text">All-Inclusive</div>
+            </div>
+          </div>
+
           {/* Social Proof Banner */}
           <div className="social-proof-banner">
             <div className="social-proof-stat">
@@ -1749,26 +1769,6 @@ function EDDMMapper() {
               </button>
             </div>
           )}
-
-          {/* Trust Badges Section */}
-          <div className="trust-badges">
-            <div className="trust-badge">
-              <div className="trust-badge-icon">🏆</div>
-              <div className="trust-badge-text">USPS<br/>Approved Partner</div>
-            </div>
-            <div className="trust-badge">
-              <div className="trust-badge-icon">⚡</div>
-              <div className="trust-badge-text">Fast<br/>2-3 Week Delivery</div>
-            </div>
-            <div className="trust-badge">
-              <div className="trust-badge-icon">💰</div>
-              <div className="trust-badge-text">Volume<br/>Discounts</div>
-            </div>
-            <div className="trust-badge">
-              <div className="trust-badge-icon">🎨</div>
-              <div className="trust-badge-text">Free Design<br/>Consultation</div>
-            </div>
-          </div>
 
           {/* Trust Bar - Navy footer */}
           <div className="trust-bar">
