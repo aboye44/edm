@@ -1739,27 +1739,39 @@ function EDDMMapper() {
             </div>
           )}
 
-          {/* Trust Bar - Navy footer */}
-          <div className="trust-bar">
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">USPS Approved</div>
-                <div className="trust-subtitle">Real carrier route data</div>
-              </div>
-            </div>
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">Volume Discounts</div>
-                <div className="trust-subtitle">Best rates guaranteed</div>
-              </div>
-            </div>
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">All-Inclusive</div>
-                <div className="trust-subtitle">Print, postage, delivery</div>
+          {/* Trust Footer - Modern Design */}
+          <div className="trust-footer">
+            <div className="trust-footer-content">
+              <h3 className="trust-footer-title">Why Choose MPA for Your EDDM Campaign</h3>
+              <div className="trust-footer-grid">
+                <div className="trust-footer-item">
+                  <div className="trust-footer-icon">🏆</div>
+                  <div className="trust-footer-text">
+                    <h4>USPS Approved Partner</h4>
+                    <p>Official USPS carrier route data for accurate targeting</p>
+                  </div>
+                </div>
+                <div className="trust-footer-item">
+                  <div className="trust-footer-icon">💰</div>
+                  <div className="trust-footer-text">
+                    <h4>Volume Discounts</h4>
+                    <p>Best rates guaranteed with transparent pricing</p>
+                  </div>
+                </div>
+                <div className="trust-footer-item">
+                  <div className="trust-footer-icon">📦</div>
+                  <div className="trust-footer-text">
+                    <h4>All-Inclusive Service</h4>
+                    <p>Printing, postage, and delivery - all handled for you</p>
+                  </div>
+                </div>
+                <div className="trust-footer-item">
+                  <div className="trust-footer-icon">⚡</div>
+                  <div className="trust-footer-text">
+                    <h4>Fast Turnaround</h4>
+                    <p>2-3 week delivery from approval to mailboxes</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
