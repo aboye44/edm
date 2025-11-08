@@ -163,6 +163,141 @@
 }
 
 /* ========================================
+   STEP INDICATORS - Progress Tracker
+   ======================================== */
+
+.step-indicators {
+  background: var(--white);
+  padding: var(--space-lg) var(--space-md);
+  border-bottom: 2px solid var(--border-gray);
+}
+
+.step-indicator-container {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+}
+
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  transition: all var(--transition-base);
+}
+
+.step-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  transition: all var(--transition-base);
+}
+
+.step-label {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  transition: color var(--transition-base);
+}
+
+/* Active Step */
+.step-indicator.active .step-circle {
+  background: var(--mpa-navy);
+  color: var(--white);
+  border: 3px solid var(--mpa-navy);
+  box-shadow: 0 4px 12px rgba(44, 62, 124, 0.3);
+}
+
+.step-indicator.active .step-label {
+  color: var(--mpa-navy);
+  font-weight: 700;
+}
+
+/* Completed Step */
+.step-indicator.completed .step-circle {
+  background: var(--mpa-green);
+  color: var(--white);
+  border: 3px solid var(--mpa-green);
+  box-shadow: 0 2px 8px rgba(0, 200, 150, 0.3);
+}
+
+.step-indicator.completed .step-label {
+  color: var(--mpa-green);
+}
+
+/* Inactive Step */
+.step-indicator.inactive .step-circle {
+  background: var(--white);
+  color: var(--text-light);
+  border: 3px solid var(--border-gray);
+}
+
+.step-indicator.inactive .step-label {
+  color: var(--text-light);
+}
+
+/* Arrow between steps */
+.step-arrow {
+  font-size: 24px;
+  color: var(--text-light);
+  margin: 0 var(--space-xs);
+  margin-bottom: 24px; /* Offset to align with circles */
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .step-indicator-container {
+    gap: var(--space-xs);
+  }
+
+  .step-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .step-label {
+    font-size: 12px;
+  }
+
+  .step-arrow {
+    font-size: 18px;
+    margin: 0 4px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .step-indicators {
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .step-circle {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .step-label {
+    font-size: 11px;
+    max-width: 80px;
+  }
+
+  .step-arrow {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+}
+
+/* ========================================
    ROUTE FINDER CARD - Floating White Card
    ======================================== */
 

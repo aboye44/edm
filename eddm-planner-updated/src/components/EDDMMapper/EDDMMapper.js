@@ -1204,6 +1204,37 @@ function EDDMMapper() {
             <p>Enter any U.S. ZIP code to see carrier routes, select your target areas, and get instant pricing</p>
           </section>
 
+          {/* Step Indicators */}
+          <div className="step-indicators">
+            <div className="step-indicator-container">
+              {/* Step 1: Enter ZIP Code */}
+              <div className={`step-indicator ${routes.length > 0 ? 'completed' : 'active'}`}>
+                <div className="step-circle">
+                  {routes.length > 0 ? '✓' : '1'}
+                </div>
+                <div className="step-label">Enter ZIP Code</div>
+              </div>
+
+              <div className="step-arrow">→</div>
+
+              {/* Step 2: Select Routes */}
+              <div className={`step-indicator ${selectedRoutes.length > 0 ? 'completed' : routes.length > 0 ? 'active' : 'inactive'}`}>
+                <div className="step-circle">
+                  {selectedRoutes.length > 0 ? '✓' : '2'}
+                </div>
+                <div className="step-label">Select Routes</div>
+              </div>
+
+              <div className="step-arrow">→</div>
+
+              {/* Step 3: Get Pricing */}
+              <div className={`step-indicator ${selectedRoutes.length > 0 ? 'active' : 'inactive'}`}>
+                <div className="step-circle">3</div>
+                <div className="step-label">Get Pricing</div>
+              </div>
+            </div>
+          </div>
+
           {/* Social Proof Banner */}
           <div className="social-proof-banner">
             <div className="social-proof-stat">
