@@ -302,9 +302,8 @@ function EDDMMapper() {
       setCenterZip(null);
       setGeocodeError(null);
 
-      // Clear existing routes from previous search
-      setRoutes([]);
-      setSelectedRoutes([]);
+      // Don't clear routes or selections - allow accumulating from multiple ZIP codes
+      // Users can manually clear using the "Clear" button if needed
 
       await fetchEDDMRoutes(zipCode);
 
@@ -431,9 +430,8 @@ function EDDMMapper() {
     console.log('Switching to radius search mode - clearing ZIP search state');
     setZipCode('');
 
-    // Clear existing routes from previous search
-    setRoutes([]);
-    setSelectedRoutes([]);
+    // Don't clear routes or selections - allow accumulating from multiple searches
+    // Users can manually clear using the "Clear" button if needed
 
     try {
       console.log(`🔍 Fetching routes within ${radiusMiles} miles of`, { centerLat, centerLng });
