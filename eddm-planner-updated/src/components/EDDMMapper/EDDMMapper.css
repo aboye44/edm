@@ -2660,3 +2660,459 @@ button:disabled {
   background: var(--mpa-green);
 }
 
+/* ========================================
+   VISUAL ENHANCEMENTS - Add to existing EDDMMapper.css
+   Adds: Gradients, Glassmorphism, Animations, Enhanced Shadows
+   ======================================== */
+
+/* ========================================
+   ENHANCED DESIGN SYSTEM VARIABLES
+   Add these to your :root section
+   ======================================== */
+
+:root {
+  /* Enhanced Shadows (add to existing shadows) */
+  --shadow-elegant: 0 20px 40px -12px rgba(44, 62, 124, 0.15);
+  --shadow-glow: 0 0 30px rgba(74, 144, 226, 0.2);
+  --shadow-card: 0 4px 6px -1px rgba(44, 62, 124, 0.1), 0 2px 4px -2px rgba(44, 62, 124, 0.1);
+  --shadow-card-hover: 0 20px 25px -5px rgba(44, 62, 124, 0.15), 0 8px 10px -6px rgba(44, 62, 124, 0.1);
+  
+  /* Gradients */
+  --gradient-hero: linear-gradient(135deg, #2C3E7C 0%, #D32F2F 100%);
+  --gradient-hero-overlay: linear-gradient(180deg, rgba(44, 62, 124, 0.5) 0%, transparent 100%);
+  --gradient-subtle: linear-gradient(180deg, #FFFFFF 0%, rgba(245, 245, 245, 0.3) 100%);
+  --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  
+  /* Enhanced Transitions */
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========================================
+   UTILITY CLASSES - Glassmorphism & Patterns
+   ======================================== */
+
+.glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(224, 224, 224, 0.2);
+}
+
+.pattern-dots {
+  background-image: radial-gradient(circle, rgba(153, 153, 153, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.pattern-grid {
+  background-image: 
+    linear-gradient(rgba(224, 224, 224, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(224, 224, 224, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(74, 144, 226, 0.5);
+  }
+}
+
+/* ========================================
+   ENHANCED HEADER
+   ======================================== */
+
+.mpa-header {
+  box-shadow: var(--shadow-md);
+}
+
+.mpa-header-contact {
+  transition: var(--transition-smooth);
+}
+
+.mpa-header-contact:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+}
+
+/* ========================================
+   ENHANCED HERO SECTION
+   ======================================== */
+
+.eddm-hero {
+  position: relative;
+  background: var(--gradient-hero);
+  overflow: hidden;
+}
+
+/* Background pattern overlay */
+.eddm-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.2;
+  z-index: 0;
+}
+
+/* Gradient overlay */
+.eddm-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(44, 62, 124, 0.5) 0%, transparent 100%);
+  z-index: 0;
+}
+
+/* Animated glow effects */
+.eddm-hero-glow-1,
+.eddm-hero-glow-2 {
+  position: absolute;
+  width: 384px;
+  height: 384px;
+  border-radius: 50%;
+  filter: blur(60px);
+  z-index: 0;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.eddm-hero-glow-1 {
+  top: 25%;
+  left: 25%;
+  background: rgba(74, 144, 226, 0.2);
+}
+
+.eddm-hero-glow-2 {
+  bottom: 25%;
+  right: 25%;
+  background: rgba(211, 47, 47, 0.2);
+  animation-delay: 1s;
+}
+
+/* Ensure content is above effects */
+.eddm-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.eddm-hero h1 {
+  animation: fadeIn 0.5s ease-out;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.eddm-hero p {
+  animation: slideUp 0.5s ease-out;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ========================================
+   ENHANCED TRUST BADGES
+   ======================================== */
+
+.trust-badges-top {
+  position: relative;
+  background: var(--light-gray);
+  overflow: hidden;
+}
+
+/* Subtle background pattern */
+.trust-badges-top::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(224, 224, 224, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(224, 224, 224, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.3;
+  z-index: 0;
+}
+
+.trust-badges-top > * {
+  position: relative;
+  z-index: 1;
+}
+
+.trust-badge {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(224, 224, 224, 0.2);
+  box-shadow: var(--shadow-card);
+  transition: var(--transition-smooth);
+}
+
+.trust-badge:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--mpa-light-blue);
+}
+
+/* Gradient glow effect on hover */
+.trust-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(0, 200, 150, 0.05) 100%);
+  opacity: 0;
+  transition: var(--transition-smooth);
+}
+
+.trust-badge:hover::after {
+  opacity: 1;
+}
+
+.trust-badge-icon {
+  transition: var(--transition-smooth);
+}
+
+.trust-badge:hover .trust-badge-icon {
+  transform: scale(1.1);
+  color: var(--mpa-light-blue);
+}
+
+/* ========================================
+   ENHANCED ROUTE FINDER CARDS
+   ======================================== */
+
+.route-finder-container {
+  position: relative;
+  background: linear-gradient(180deg, #FFFFFF 0%, rgba(245, 245, 245, 0.3) 100%);
+  overflow: hidden;
+}
+
+/* Subtle background pattern */
+.route-finder-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(153, 153, 153, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.1;
+  z-index: 0;
+}
+
+.route-finder-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.finder-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(229, 231, 235, 0.3);
+  box-shadow: var(--shadow-card);
+  transition: var(--transition-smooth);
+}
+
+.finder-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.finder-card-label {
+  transition: var(--transition-smooth);
+}
+
+.finder-card:hover .finder-card-label {
+  color: var(--mpa-light-blue);
+}
+
+.finder-card-icon {
+  transition: var(--transition-smooth);
+}
+
+.finder-card:hover .finder-card-icon {
+  transform: scale(1.1);
+}
+
+.finder-btn {
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}
+
+.finder-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  opacity: 0;
+  transition: var(--transition-smooth);
+}
+
+.finder-btn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.finder-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 16px rgba(44, 62, 124, 0.3);
+}
+
+/* ========================================
+   ENHANCED ROUTE CARDS (in sidebar/list)
+   ======================================== */
+
+.route-card {
+  box-shadow: var(--shadow-card);
+  transition: var(--transition-smooth);
+}
+
+.route-card:hover {
+  transform: translateX(4px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.route-card.selected {
+  box-shadow: 0 0 0 2px var(--mpa-light-blue), var(--shadow-card-hover);
+}
+
+/* ========================================
+   ENHANCED BUTTONS & INTERACTIVE ELEMENTS
+   ======================================== */
+
+.btn-primary,
+.quote-submit-btn,
+.clear-btn {
+  transition: var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before,
+.quote-submit-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  opacity: 0;
+  transition: var(--transition-smooth);
+}
+
+.btn-primary:hover:not(:disabled)::before,
+.quote-submit-btn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.btn-primary:hover:not(:disabled),
+.quote-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.clear-btn:hover {
+  transform: scale(1.05);
+}
+
+/* ========================================
+   ENHANCED MODAL OVERLAYS
+   ======================================== */
+
+.modal-overlay {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  animation: scaleIn 0.3s ease-out;
+  box-shadow: var(--shadow-elegant);
+}
+
+/* ========================================
+   ENHANCED FORMS
+   ======================================== */
+
+.finder-input:focus,
+.finder-select:focus,
+.form-input:focus,
+.form-textarea:focus {
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+/* ========================================
+   LOADING STATES
+   ======================================== */
+
+.loading-spinner {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ========================================
+   SMOOTH SCROLLING
+   ======================================== */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ========================================
+   PRINT-FRIENDLY ADJUSTMENTS
+   ======================================== */
+
+@media print {
+  .glass,
+  .pattern-dots,
+  .pattern-grid {
+    background: white !important;
+    backdrop-filter: none !important;
+  }
+  
+  .eddm-hero::before,
+  .eddm-hero::after,
+  .eddm-hero-glow-1,
+  .eddm-hero-glow-2 {
+    display: none !important;
+  }
+}
