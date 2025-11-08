@@ -7,8 +7,8 @@ import './EDDMMapper.css';
 // Google Maps libraries to load
 const GOOGLE_MAPS_LIBRARIES = ['places'];
 
-// Netlify Function endpoint for fetching EDDM routes (proxies USPS API to avoid CORS)
-const EDDM_API_ENDPOINT = '/.netlify/functions/eddm-routes';
+// Vercel Serverless Function endpoint for fetching EDDM routes (proxies USPS API to avoid CORS)
+const EDDM_API_ENDPOINT = '/api/eddm-routes';
 
 // Calculate distance between two lat/lng points in miles using Haversine formula
 const calculateDistance = (lat1, lng1, lat2, lng2) => {
@@ -134,6 +134,14 @@ function EDDMMapper() {
   const [deliveryType, setDeliveryType] = useState('all');
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState(null);
+
+  // Lead Capture Modals State
+  const [showEmailEstimate, setShowEmailEstimate] = useState(false);
+  const [showSaveCampaign, setShowSaveCampaign] = useState(false);
+  const [showExitIntent, setShowExitIntent] = useState(false);
+  const [exitIntentShown, setExitIntentShown] = useState(false);
+  const [emailEstimateData, setEmailEstimateData] = useState({ email: '' });
+  const [saveCampaignData, setSaveCampaignData] = useState({ email: '', firstName: '' });
 
   // Coverage Circle Tool state
   const [locationAddress, setLocationAddress] = useState('');
@@ -302,17 +310,18 @@ function EDDMMapper() {
       setCenterZip(null);
       setGeocodeError(null);
 
-      // Clear existing routes from previous search
-      setRoutes([]);
-      setSelectedRoutes([]);
+      // Don't clear routes or selections - allow accumulating from multiple ZIP codes
+      // Users can manually clear using the "Clear" button if needed
 
       await fetchEDDMRoutes(zipCode);
 
-      // Center map on the ZIP code routes
+      // Center map on the newly searched ZIP code routes
       setTimeout(() => {
         setRoutes(currentRoutes => {
-          if (currentRoutes.length > 0) {
-            const firstRoute = currentRoutes[0];
+          // Find routes from the ZIP code we just searched
+          const newZipRoutes = currentRoutes.filter(r => r.zipCode === zipCode);
+          if (newZipRoutes.length > 0) {
+            const firstRoute = newZipRoutes[0];
             setMapCenter({ lat: firstRoute.centerLat, lng: firstRoute.centerLng });
           }
           return currentRoutes;
@@ -431,9 +440,8 @@ function EDDMMapper() {
     console.log('Switching to radius search mode - clearing ZIP search state');
     setZipCode('');
 
-    // Clear existing routes from previous search
-    setRoutes([]);
-    setSelectedRoutes([]);
+    // Don't clear routes or selections - allow accumulating from multiple searches
+    // Users can manually clear using the "Clear" button if needed
 
     try {
       console.log(`🔍 Fetching routes within ${radiusMiles} miles of`, { centerLat, centerLng });
@@ -527,10 +535,8 @@ function EDDMMapper() {
           setCenterZip(null);
         }
 
-        // Only center map if no routes exist yet (first search)
-        if (routes.length === 0) {
-          setMapCenter({ lat, lng });
-        }
+        // Center map on the selected location
+        setMapCenter({ lat, lng });
 
         setGeocodeError(null);
 
@@ -541,7 +547,7 @@ function EDDMMapper() {
         setGeocodeError('Could not get location for this address');
       }
     }
-  }, [routes.length]);
+  }, []);
 
   // Find routes for the selected address (handles both autocomplete and manual entry)
   const geocodeAddress = useCallback(async (e) => {
@@ -598,10 +604,8 @@ function EDDMMapper() {
           console.log('ZIP extracted from geocoding:', extractedZip);
         }
 
-        // Only center map if no routes exist yet (first search)
-        if (routes.length === 0) {
-          setMapCenter({ lat: location.lat, lng: location.lng });
-        }
+        // Center map on the searched location
+        setMapCenter({ lat: location.lat, lng: location.lng });
 
         setGeocodeError(null);
         console.log('Geocoding success:', { lat: location.lat, lng: location.lng });
@@ -621,7 +625,7 @@ function EDDMMapper() {
     } finally {
       setGeocoding(false);
     }
-  }, [locationAddress, selectedRadius, fetchRoutesForRadius, routes.length, circleCenter, centerZip]);
+  }, [locationAddress, selectedRadius, fetchRoutesForRadius, circleCenter, centerZip]);
 
   // Calculate routes within the selected radius
   // FIXED: Now checks if route POLYGON intersects radius, not just center point
@@ -954,6 +958,215 @@ function EDDMMapper() {
     });
   };
 
+  // TIER 1: Email Me Estimate - Lowest friction lead capture
+  const handleEmailEstimate = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmissionError(null);
+
+    const pricing = calculateTotal();
+    const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
+
+    const leadData = {
+      leadTier: 'email_estimate_requested',
+      email: emailEstimateData.email,
+      routeIds: selectedRoutes,
+      routeNames: selectedRouteData.map(r => `${r.name} (ZIP ${r.zipCode})`).join(', '),
+      totalAddresses: pricing.addresses,
+      deliveryType,
+      ...(pricing.belowMinimum ? {
+        belowMinimum: true,
+        minimumQuantity: pricing.minimumQuantity
+      } : {
+        printRate: pricing.printRate,
+        pricingTier: pricing.currentTier,
+        estimatedTotal: pricing.total.toFixed(2)
+      }),
+      timestamp: new Date().toISOString(),
+      id: `lead-email-${Date.now()}`
+    };
+
+    // Track in Sentry
+    Sentry.addBreadcrumb({
+      category: 'user-action',
+      message: 'Email estimate requested',
+      level: 'info',
+      data: { email: emailEstimateData.email, totalAddresses: pricing.addresses }
+    });
+
+    // Send to webhook
+    const webhookUrl = process.env.REACT_APP_ZAPIER_WEBHOOK_URL;
+    let webhookSuccess = false;
+
+    if (webhookUrl) {
+      try {
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(leadData),
+          signal: AbortSignal.timeout(10000)
+        });
+        if (response.ok) {
+          webhookSuccess = true;
+          console.log('✅ Email estimate lead captured');
+        }
+      } catch (err) {
+        console.error('❌ Webhook error:', err);
+        Sentry.captureException(err, { tags: { errorType: 'webhook_failure', leadTier: 'email_estimate' } });
+      }
+    }
+
+    // Save to localStorage as backup
+    try {
+      const existingLeads = JSON.parse(localStorage.getItem('eddm-leads') || '[]');
+      existingLeads.push(leadData);
+      localStorage.setItem('eddm-leads', JSON.stringify(existingLeads));
+    } catch (err) {
+      console.error('localStorage error:', err);
+    }
+
+    setSubmitting(false);
+    setShowEmailEstimate(false);
+    alert(`✅ Estimate sent to ${emailEstimateData.email}!\n\nCheck your inbox in the next few minutes. We'll also follow up within 2 business hours.\n\nReference: ${leadData.id}`);
+    setEmailEstimateData({ email: '' });
+  };
+
+  // TIER 2: Save Campaign - Name + Email capture
+  const handleSaveCampaign = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmissionError(null);
+
+    const pricing = selectedRoutes.length > 0 ? calculateTotal() : { addresses: 0 };
+    const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
+
+    const campaignId = `camp-${Date.now()}`;
+    const leadData = {
+      leadTier: 'campaign_saved',
+      email: saveCampaignData.email,
+      firstName: saveCampaignData.firstName,
+      campaignId,
+      routeIds: selectedRoutes,
+      routeNames: selectedRouteData.map(r => `${r.name} (ZIP ${r.zipCode})`).join(', '),
+      totalAddresses: pricing.addresses,
+      deliveryType,
+      timestamp: new Date().toISOString(),
+      id: `lead-save-${Date.now()}`
+    };
+
+    // Track in Sentry
+    Sentry.addBreadcrumb({
+      category: 'user-action',
+      message: 'Campaign saved',
+      level: 'info',
+      data: { firstName: saveCampaignData.firstName, campaignId }
+    });
+
+    // Send to webhook
+    const webhookUrl = process.env.REACT_APP_ZAPIER_WEBHOOK_URL;
+    if (webhookUrl) {
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(leadData),
+          signal: AbortSignal.timeout(10000)
+        });
+        console.log('✅ Save campaign lead captured');
+      } catch (err) {
+        console.error('❌ Webhook error:', err);
+        Sentry.captureException(err, { tags: { errorType: 'webhook_failure', leadTier: 'campaign_saved' } });
+      }
+    }
+
+    // Save to localStorage
+    try {
+      const existingLeads = JSON.parse(localStorage.getItem('eddm-leads') || '[]');
+      existingLeads.push(leadData);
+      localStorage.setItem('eddm-leads', JSON.stringify(existingLeads));
+      localStorage.setItem(`eddm-campaign-${campaignId}`, JSON.stringify({ selectedRoutes, deliveryType, timestamp: new Date().toISOString() }));
+    } catch (err) {
+      console.error('localStorage error:', err);
+    }
+
+    setSubmitting(false);
+    setShowSaveCampaign(false);
+    alert(`✅ Campaign saved, ${saveCampaignData.firstName}!\n\nWe've emailed you a link to return to this campaign anytime.\n\nCampaign ID: ${campaignId}`);
+    setSaveCampaignData({ email: '', firstName: '' });
+  };
+
+  // TIER 4: Exit Intent - Last chance capture
+  const handleExitIntentCapture = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    const pricing = selectedRoutes.length > 0 ? calculateTotal() : { addresses: 0 };
+    const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
+
+    const leadData = {
+      leadTier: 'exit_intent_captured',
+      email: emailEstimateData.email,
+      routeIds: selectedRoutes,
+      routeNames: selectedRouteData.map(r => `${r.name} (ZIP ${r.zipCode})`).join(', '),
+      totalAddresses: pricing.addresses,
+      deliveryType,
+      timestamp: new Date().toISOString(),
+      id: `lead-exit-${Date.now()}`
+    };
+
+    // Track in Sentry
+    Sentry.addBreadcrumb({
+      category: 'user-action',
+      message: 'Exit intent captured',
+      level: 'info',
+      data: { email: emailEstimateData.email }
+    });
+
+    // Send to webhook
+    const webhookUrl = process.env.REACT_APP_ZAPIER_WEBHOOK_URL;
+    if (webhookUrl) {
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(leadData),
+          signal: AbortSignal.timeout(10000)
+        });
+        console.log('✅ Exit intent lead captured');
+      } catch (err) {
+        console.error('❌ Webhook error:', err);
+      }
+    }
+
+    // Save to localStorage
+    try {
+      const existingLeads = JSON.parse(localStorage.getItem('eddm-leads') || '[]');
+      existingLeads.push(leadData);
+      localStorage.setItem('eddm-leads', JSON.stringify(existingLeads));
+    } catch (err) {
+      console.error('localStorage error:', err);
+    }
+
+    setSubmitting(false);
+    setShowExitIntent(false);
+    alert(`✅ We'll email your estimate shortly!\n\nReference: ${leadData.id}`);
+    setEmailEstimateData({ email: '' });
+  };
+
+  // Exit Intent Detection
+  useEffect(() => {
+    const handleMouseLeave = (e) => {
+      // Only trigger if mouse leaves from top of viewport (back/close button area)
+      if (e.clientY <= 10 && !exitIntentShown && selectedRoutes.length > 0) {
+        setShowExitIntent(true);
+        setExitIntentShown(true); // Only show once per session
+      }
+    };
+
+    document.addEventListener('mouseleave', handleMouseLeave);
+    return () => document.removeEventListener('mouseleave', handleMouseLeave);
+  }, [exitIntentShown, selectedRoutes.length]);
+
   const pricing = selectedRoutes.length > 0 ? calculateTotal() : null;
   const hasSelection = Boolean(pricing);
 
@@ -973,9 +1186,16 @@ function EDDMMapper() {
         <header className="mpa-header">
           <div className="mpa-header-logo">MPA</div>
           <div className="mpa-header-center">EDDM Campaign Planner</div>
-          <button className="mpa-header-contact" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
-            Contact Us
-          </button>
+          <div className="mpa-header-actions">
+            {selectedRoutes.length > 0 && (
+              <button className="mpa-header-save" onClick={() => setShowSaveCampaign(true)}>
+                💾 Save Campaign
+              </button>
+            )}
+            <button className="mpa-header-contact" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
+              Contact Us
+            </button>
+          </div>
         </header>
 
         {/* Content wrapper - pushes below fixed header */}
@@ -985,6 +1205,19 @@ function EDDMMapper() {
             <h1>EDDM Campaign Planner</h1>
             <p>Enter any U.S. ZIP code to see carrier routes, select your target areas, and get instant pricing</p>
           </section>
+
+          {/* Social Proof Banner */}
+          <div className="social-proof-banner">
+            <div className="social-proof-stat">
+              <strong>500+</strong> businesses trust MPA
+            </div>
+            <div className="social-proof-stat">
+              <strong>10M+</strong> postcards delivered in 2024
+            </div>
+            <div className="social-proof-stat">
+              <strong>15+</strong> years serving Florida
+            </div>
+          </div>
 
           {/* Route Finder Card - Floating white card */}
           <div className="route-finder-container">
@@ -1240,24 +1473,6 @@ function EDDMMapper() {
             </GoogleMap>
           </div>
 
-          {/* Targeted Mail Planner Promotion */}
-          <div className="targeted-promo-banner">
-            <div className="targeted-promo-content">
-              <div className="targeted-promo-text">
-                <span className="targeted-promo-icon">🎯</span>
-                <span>Need more precise targeting? Try our <strong>Targeted Mail Planner</strong></span>
-              </div>
-              <a
-                href="https://www.targeted.mailpro.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="targeted-promo-link"
-              >
-                Learn More →
-              </a>
-            </div>
-          </div>
-
           {/* Two-Column Layout: Routes Grid + Sticky Estimate */}
           {routes.length > 0 && (
             <div className="routes-and-estimate-wrapper">
@@ -1366,6 +1581,10 @@ function EDDMMapper() {
                             REQUEST CUSTOM QUOTE
                           </button>
 
+                          <button className="estimate-cta estimate-cta-email" onClick={() => setShowEmailEstimate(true)}>
+                            📧 EMAIL ME ESTIMATE
+                          </button>
+
                           <p className="estimate-fine-print">
                             We'll provide competitive pricing options for your campaign size and reach out within 24 hours.
                           </p>
@@ -1391,6 +1610,10 @@ function EDDMMapper() {
 
                           <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
                             REQUEST FINAL QUOTE
+                          </button>
+
+                          <button className="estimate-cta estimate-cta-email" onClick={() => setShowEmailEstimate(true)}>
+                            📧 EMAIL ME ESTIMATE
                           </button>
 
                           <button className="estimate-cta estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
@@ -1435,6 +1658,26 @@ function EDDMMapper() {
               </button>
             </div>
           )}
+
+          {/* Trust Badges Section */}
+          <div className="trust-badges">
+            <div className="trust-badge">
+              <div className="trust-badge-icon">🏆</div>
+              <div className="trust-badge-text">USPS<br/>Approved Partner</div>
+            </div>
+            <div className="trust-badge">
+              <div className="trust-badge-icon">⚡</div>
+              <div className="trust-badge-text">Fast<br/>2-3 Week Delivery</div>
+            </div>
+            <div className="trust-badge">
+              <div className="trust-badge-icon">💰</div>
+              <div className="trust-badge-text">Volume<br/>Discounts</div>
+            </div>
+            <div className="trust-badge">
+              <div className="trust-badge-icon">🎨</div>
+              <div className="trust-badge-text">Free Design<br/>Consultation</div>
+            </div>
+          </div>
 
           {/* Trust Bar - Navy footer */}
           <div className="trust-bar">
@@ -1724,6 +1967,136 @@ function EDDMMapper() {
           totalAddresses={pricing.addresses}
           onClose={() => setShowROICalculator(false)}
         />
+      )}
+
+      {/* TIER 1: Email Me Estimate Modal */}
+      {showEmailEstimate && (
+        <div className="modal-overlay" onClick={() => setShowEmailEstimate(false)}>
+          <div className="modal-content modal-simple" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowEmailEstimate(false)}>×</button>
+            <h2>📧 Email Your Estimate</h2>
+            <p className="modal-subtitle">We'll send a detailed estimate to your inbox instantly, with no obligation.</p>
+
+            <form onSubmit={handleEmailEstimate} className="simple-capture-form">
+              <input
+                type="email"
+                placeholder="Your email address"
+                value={emailEstimateData.email}
+                onChange={(e) => setEmailEstimateData({ email: e.target.value })}
+                required
+                autoFocus
+                className="simple-input"
+              />
+
+              {pricing && (
+                <div className="estimate-summary-box">
+                  <div className="summary-row">
+                    <span>{selectedRoutes.length} routes selected</span>
+                    <span>{pricing.addresses.toLocaleString()} addresses</span>
+                  </div>
+                  {!pricing.belowMinimum && (
+                    <div className="summary-total">
+                      Est. ${pricing.total.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button type="submit" className="submit-btn" disabled={submitting}>
+                {submitting ? 'Sending...' : 'Email Me the Estimate'}
+              </button>
+
+              <p className="trust-note">✓ No spam, ever. We'll also follow up to answer questions.</p>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TIER 2: Save Campaign Modal */}
+      {showSaveCampaign && (
+        <div className="modal-overlay" onClick={() => setShowSaveCampaign(false)}>
+          <div className="modal-content modal-simple" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowSaveCampaign(false)}>×</button>
+            <h2>💾 Save Your Campaign</h2>
+            <p className="modal-subtitle">We'll email you a link to return to this campaign anytime.</p>
+
+            <form onSubmit={handleSaveCampaign} className="simple-capture-form">
+              <input
+                type="text"
+                placeholder="First name"
+                value={saveCampaignData.firstName}
+                onChange={(e) => setSaveCampaignData({...saveCampaignData, firstName: e.target.value})}
+                required
+                autoFocus
+                className="simple-input"
+              />
+
+              <input
+                type="email"
+                placeholder="Email address"
+                value={saveCampaignData.email}
+                onChange={(e) => setSaveCampaignData({...saveCampaignData, email: e.target.value})}
+                required
+                className="simple-input"
+              />
+
+              {selectedRoutes.length > 0 && (
+                <div className="estimate-summary-box">
+                  <div className="summary-row">
+                    <span>{selectedRoutes.length} routes</span>
+                    <span>{calculateTotal().addresses.toLocaleString()} addresses</span>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="submit-btn" disabled={submitting}>
+                {submitting ? 'Saving...' : 'Save My Campaign'}
+              </button>
+
+              <p className="trust-note">✓ Your campaign will be saved for 30 days</p>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TIER 4: Exit Intent Modal */}
+      {showExitIntent && (
+        <div className="modal-overlay exit-intent-overlay" onClick={() => setShowExitIntent(false)}>
+          <div className="modal-content modal-simple exit-intent-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowExitIntent(false)}>×</button>
+            <h2>🚀 Wait! Before You Go...</h2>
+            <p className="modal-subtitle">Let us email your estimate so you don't lose your work!</p>
+
+            <form onSubmit={handleExitIntentCapture} className="simple-capture-form">
+              <input
+                type="email"
+                placeholder="Your email address"
+                value={emailEstimateData.email}
+                onChange={(e) => setEmailEstimateData({ email: e.target.value })}
+                required
+                autoFocus
+                className="simple-input"
+              />
+
+              {selectedRoutes.length > 0 && (
+                <div className="estimate-summary-box">
+                  <div className="summary-row">
+                    <span>{selectedRoutes.length} routes selected</span>
+                    <span>{calculateTotal().addresses.toLocaleString()} addresses</span>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="submit-btn" disabled={submitting}>
+                {submitting ? 'Sending...' : 'Email Me & Save Campaign'}
+              </button>
+
+              <button type="button" className="skip-btn" onClick={() => setShowExitIntent(false)}>
+                No thanks, I'll start over next time
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </LoadScript>
   );

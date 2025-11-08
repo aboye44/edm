@@ -1840,3 +1840,360 @@
   font-style: italic;
 }
 
+/* ========================================
+   STRATEGIC LEAD CAPTURE - New Modals & Buttons
+   ======================================== */
+
+/* Header Actions - Save Campaign Button */
+.mpa-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.mpa-header-save {
+  background: var(--mpa-light-blue);
+  color: var(--white);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base);
+  font-size: 14px;
+}
+
+.mpa-header-save:hover {
+  background: var(--mpa-light-blue-dark);
+}
+
+/* Email Estimate Button - Secondary CTA */
+.estimate-cta-email {
+  background: var(--white);
+  color: var(--mpa-light-blue);
+  border: 2px solid var(--mpa-light-blue);
+  margin-top: var(--space-sm);
+}
+
+.estimate-cta-email:hover {
+  background: var(--mpa-light-blue);
+  color: var(--white);
+}
+
+/* Simple Modal Styling for Lead Capture */
+.modal-simple {
+  max-width: 480px;
+  text-align: center;
+}
+
+.modal-subtitle {
+  font-size: 16px;
+  color: var(--text-medium);
+  margin-bottom: var(--space-lg);
+  line-height: 1.5;
+}
+
+.simple-capture-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.simple-input {
+  padding: 16px;
+  font-size: 16px;
+  border: 2px solid var(--border-gray);
+  border-radius: 8px;
+  transition: border-color var(--transition-base);
+}
+
+.simple-input:focus {
+  outline: none;
+  border-color: var(--mpa-light-blue);
+}
+
+.estimate-summary-box {
+  background: var(--light-gray);
+  border-radius: 8px;
+  padding: var(--space-md);
+  margin: var(--space-sm) 0;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-medium);
+  margin-bottom: 8px;
+}
+
+.summary-row:last-child {
+  margin-bottom: 0;
+}
+
+.summary-total {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mpa-navy);
+  margin-top: var(--space-sm);
+}
+
+.trust-note {
+  font-size: 13px;
+  color: var(--text-medium);
+  margin-top: var(--space-sm);
+  text-align: center;
+}
+
+/* Exit Intent Modal - Special Styling */
+.exit-intent-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.exit-intent-modal {
+  animation: slideDown 0.3s ease-out;
+  border-top: 4px solid var(--mpa-red);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.skip-btn {
+  background: none;
+  border: none;
+  color: var(--text-light);
+  font-size: 14px;
+  padding: var(--space-sm);
+  cursor: pointer;
+  transition: color var(--transition-base);
+  text-decoration: underline;
+}
+
+.skip-btn:hover {
+  color: var(--text-medium);
+}
+
+/* Social Proof Elements */
+.social-proof-banner {
+  background: var(--light-gray);
+  padding: var(--space-md);
+  text-align: center;
+  border-top: 1px solid var(--border-gray);
+  border-bottom: 1px solid var(--border-gray);
+}
+
+.social-proof-stat {
+  font-size: 14px;
+  color: var(--text-medium);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--space-md);
+}
+
+.social-proof-stat strong {
+  color: var(--mpa-navy);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.trust-badges {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--white);
+  flex-wrap: wrap;
+}
+
+.trust-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-sm);
+}
+
+.trust-badge-icon {
+  font-size: 32px;
+  color: var(--mpa-light-blue);
+}
+
+.trust-badge-text {
+  font-size: 13px;
+  color: var(--text-medium);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Testimonial Section */
+.testimonials-section {
+  background: var(--white);
+  padding: var(--space-2xl) var(--space-lg);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.testimonial-card {
+  background: var(--light-gray);
+  padding: var(--space-lg);
+  border-radius: 8px;
+  border-left: 4px solid var(--mpa-light-blue);
+}
+
+.testimonial-quote {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-dark);
+  margin-bottom: var(--space-md);
+  font-style: italic;
+}
+
+.testimonial-author {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mpa-navy);
+}
+
+.testimonial-company {
+  font-size: 13px;
+  color: var(--text-medium);
+  margin-top: 4px;
+}
+
+/* Mobile Optimizations for Lead Capture */
+@media (max-width: 768px) {
+  .mpa-header-actions {
+    gap: 8px;
+  }
+
+  .mpa-header-save {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .mpa-header-contact {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .modal-simple {
+    max-width: 95%;
+    margin: var(--space-md);
+  }
+
+  .simple-input {
+    padding: 14px;
+    font-size: 16px; /* Prevent iOS zoom */
+  }
+
+  .estimate-cta {
+    font-size: 16px;
+    padding: 16px;
+  }
+
+  .estimate-cta-email {
+    font-size: 15px;
+    padding: 14px;
+  }
+
+  .trust-badges {
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+
+  .trust-badge {
+    flex: 1 1 150px;
+  }
+
+  .testimonials-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+
+  .social-proof-stat {
+    display: block;
+    margin: var(--space-sm) 0;
+  }
+}
+
+/* Accessibility Improvements */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--mpa-light-blue);
+  outline-offset: 2px;
+}
+
+/* Loading States for Buttons */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Success State for Forms */
+.form-success {
+  background: #E8F5E9;
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  padding: var(--space-lg);
+  text-align: center;
+  color: #2E7D32;
+  margin-top: var(--space-md);
+}
+
+.form-success-icon {
+  font-size: 48px;
+  margin-bottom: var(--space-sm);
+}
+
+/* Progress Indicator for Quote Form */
+.form-progress {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.progress-step {
+  width: 40px;
+  height: 4px;
+  background: var(--border-gray);
+  border-radius: 2px;
+  transition: background var(--transition-base);
+}
+
+.progress-step.active {
+  background: var(--mpa-light-blue);
+}
+
+.progress-step.completed {
+  background: var(--mpa-green);
+}
+
