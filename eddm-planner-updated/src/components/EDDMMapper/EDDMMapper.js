@@ -1235,13 +1235,15 @@ function EDDMMapper() {
             </div>
           </div>
 
-          {/* Route Finder Card - Floating white card */}
+          {/* Route Finder - Search Options */}
           <div className="route-finder-container">
-            <div className="route-finder-card">
+            <div className="route-finder-grid">
               {/* ZIP Search Section */}
-              <div className="finder-section">
-                <div className="finder-section-icon">📍</div>
-                <div className="finder-section-label">Search by ZIP</div>
+              <div className="finder-card">
+                <div className="finder-card-label">
+                  <span className="finder-card-icon">📍</span>
+                  Search by ZIP
+                </div>
                 <form onSubmit={handleZipSearch}>
                   <input
                     type="text"
@@ -1254,7 +1256,7 @@ function EDDMMapper() {
                     required
                     disabled={loading}
                   />
-                  <button type="submit" className="finder-btn-blue" disabled={loading}>
+                  <button type="submit" className="finder-btn" disabled={loading}>
                     {loading ? 'Searching...' : 'Search'}
                   </button>
                 </form>
@@ -1263,12 +1265,12 @@ function EDDMMapper() {
                 )}
               </div>
 
-              <div className="route-finder-divider"></div>
-
-              {/* Coverage Circle Section */}
-              <div className="finder-section">
-                <div className="finder-section-icon">📐</div>
-                <div className="finder-section-label">Coverage Area</div>
+              {/* Coverage Area Section */}
+              <div className="finder-card">
+                <div className="finder-card-label">
+                  <span className="finder-card-icon">📍</span>
+                  Coverage Area
+                </div>
                 <form onSubmit={geocodeAddress}>
                   <Autocomplete
                     onLoad={onAutocompleteLoad}
@@ -1299,7 +1301,7 @@ function EDDMMapper() {
                       <option value={10}>10 miles</option>
                       <option value={15}>15 miles</option>
                     </select>
-                    <button type="submit" className="finder-btn-red" disabled={geocoding || loading}>
+                    <button type="submit" className="finder-btn" disabled={geocoding || loading}>
                       {geocoding || loading ? 'Finding...' : 'Find Routes'}
                     </button>
                   </div>
