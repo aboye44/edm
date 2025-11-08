@@ -996,7 +996,6 @@ function EDDMMapper() {
 
     // Send to webhook
     const webhookUrl = process.env.REACT_APP_ZAPIER_WEBHOOK_URL;
-    let webhookSuccess = false;
 
     if (webhookUrl) {
       try {
@@ -1007,7 +1006,6 @@ function EDDMMapper() {
           signal: AbortSignal.timeout(10000)
         });
         if (response.ok) {
-          webhookSuccess = true;
           console.log('✅ Email estimate lead captured');
         }
       } catch (err) {
