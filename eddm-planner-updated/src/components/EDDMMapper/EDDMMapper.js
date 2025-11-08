@@ -307,11 +307,13 @@ function EDDMMapper() {
 
       await fetchEDDMRoutes(zipCode);
 
-      // Center map on the ZIP code routes
+      // Center map on the newly searched ZIP code routes
       setTimeout(() => {
         setRoutes(currentRoutes => {
-          if (currentRoutes.length > 0) {
-            const firstRoute = currentRoutes[0];
+          // Find routes from the ZIP code we just searched
+          const newZipRoutes = currentRoutes.filter(r => r.zipCode === zipCode);
+          if (newZipRoutes.length > 0) {
+            const firstRoute = newZipRoutes[0];
             setMapCenter({ lat: firstRoute.centerLat, lng: firstRoute.centerLng });
           }
           return currentRoutes;
@@ -525,10 +527,8 @@ function EDDMMapper() {
           setCenterZip(null);
         }
 
-        // Only center map if no routes exist yet (first search)
-        if (routes.length === 0) {
-          setMapCenter({ lat, lng });
-        }
+        // Center map on the selected location
+        setMapCenter({ lat, lng });
 
         setGeocodeError(null);
 
@@ -596,10 +596,8 @@ function EDDMMapper() {
           console.log('ZIP extracted from geocoding:', extractedZip);
         }
 
-        // Only center map if no routes exist yet (first search)
-        if (routes.length === 0) {
-          setMapCenter({ lat: location.lat, lng: location.lng });
-        }
+        // Center map on the searched location
+        setMapCenter({ lat: location.lat, lng: location.lng });
 
         setGeocodeError(null);
         console.log('Geocoding success:', { lat: location.lat, lng: location.lng });
