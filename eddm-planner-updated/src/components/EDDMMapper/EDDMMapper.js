@@ -1215,7 +1215,7 @@ function EDDMMapper() {
                 <div className="step-label">Enter ZIP Code</div>
               </div>
 
-              <div className="step-arrow">→</div>
+              <div className="step-connector"></div>
 
               {/* Step 2: Select Routes */}
               <div className={`step-indicator ${selectedRoutes.length > 0 ? 'completed' : routes.length > 0 ? 'active' : 'inactive'}`}>
@@ -1225,7 +1225,7 @@ function EDDMMapper() {
                 <div className="step-label">Select Routes</div>
               </div>
 
-              <div className="step-arrow">→</div>
+              <div className="step-connector"></div>
 
               {/* Step 3: Get Pricing */}
               <div className={`step-indicator ${selectedRoutes.length > 0 ? 'active' : 'inactive'}`}>
