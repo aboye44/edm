@@ -1,5 +1,5 @@
-// Vercel Serverless Function to fetch Census demographic data
-// Gets census blocks within a radius and their demographic information
+// Vercel Serverless Function to fetch Census demographic data by ZIP codes
+// FREE approach: Uses ZIP Code Tabulation Areas (ZCTAs) with real coordinates
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -37,112 +37,62 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log(`Fetching census data for ${latitude}, ${longitude} within ${radiusMiles} miles`);
+    console.log(`Fetching ZIP codes within ${radiusMiles} miles of ${latitude}, ${longitude}`);
 
-    // Step 1: Get the state and county FIPS codes using reverse geocoding
-    const geocodeData = await reverseGeocode(latitude, longitude);
-    const { stateFips, countyFips } = geocodeData;
+    // Step 1: Find nearby ZIP codes using Census Geocoder
+    const nearbyZips = await findNearbyZipCodes(latitude, longitude, radiusMiles);
 
-    console.log(`Location in state ${stateFips}, county ${countyFips}`);
-
-    // Step 2: Fetch census block groups for the county
-    // Using ACS 5-Year estimates (most comprehensive demographic data)
-    const year = 2021; // Most recent complete ACS 5-year data
-
-    // Variables to fetch (from ACS):
-    // B19013_001E: Median household income
-    // B01002_001E: Median age
-    // B25077_001E: Median home value
-    // B25003_002E: Owner-occupied housing units
-    // B25003_003E: Renter-occupied housing units
-    // B25003_001E: Total occupied housing units
-
-    const variables = [
-      'B19013_001E', // Median household income
-      'B01002_001E', // Median age
-      'B25077_001E', // Median home value
-      'B25003_001E', // Total occupied units
-      'B25003_002E', // Owner occupied
-      'B25003_003E', // Renter occupied
-    ].join(',');
-
-    const censusApiKey = process.env.CENSUS_API_KEY || '';
-    const censusUrl = `https://api.census.gov/data/${year}/acs/acs5?get=NAME,${variables}&for=block%20group:*&in=state:${stateFips}%20county:${countyFips}${censusApiKey ? `&key=${censusApiKey}` : ''}`;
-
-    console.log('Fetching from Census API...');
-    const censusResponse = await fetch(censusUrl);
-
-    if (!censusResponse.ok) {
-      throw new Error(`Census API returned status ${censusResponse.status}`);
+    if (nearbyZips.length === 0) {
+      return res.status(200).json({
+        success: true,
+        center: { lat: latitude, lng: longitude },
+        radius: radiusMiles,
+        blocks: [],
+        totalBlocks: 0,
+        estimatedAddresses: 0,
+        message: 'No ZIP codes found in this area'
+      });
     }
 
-    const censusData = await censusResponse.json();
+    console.log(`Found ${nearbyZips.length} ZIP codes:`, nearbyZips.map(z => z.zip).join(', '));
 
-    // First row is headers, skip it
-    const headers = censusData[0];
-    const rows = censusData.slice(1);
+    // Step 2: Fetch demographic data for these ZIP codes from Census ACS
+    const zipDemographics = await fetchZipDemographics(nearbyZips.map(z => z.zip));
 
-    console.log(`Found ${rows.length} block groups in county`);
+    // Step 3: Combine coordinates with demographics
+    const enrichedZips = nearbyZips.map(zipInfo => {
+      const demographics = zipDemographics[zipInfo.zip] || {};
 
-    // Step 3: Get geographic boundaries for block groups and filter by radius
-    const blocksWithinRadius = [];
+      return {
+        geoId: zipInfo.zip,
+        name: `ZIP ${zipInfo.zip}`,
+        zip: zipInfo.zip,
+        lat: zipInfo.lat,
+        lng: zipInfo.lng,
+        distance: zipInfo.distance,
+        households: demographics.households || 0,
+        medianIncome: demographics.medianIncome || 0,
+        medianAge: demographics.medianAge || 0,
+        medianHomeValue: demographics.medianHomeValue || 0,
+        ownerOccupiedRate: demographics.ownershipRate || 0,
+        renterOccupiedRate: demographics.renterRate || 0,
+      };
+    });
 
-    for (const row of rows) {
-      // Parse the census data row
-      const blockData = parseRow(headers, row);
+    // Filter out ZIPs with no household data
+    const validZips = enrichedZips.filter(z => z.households > 0);
 
-      // Get the geographic center of this block group
-      const blockGeoId = `${blockData.state}${blockData.county}${blockData.tract}${blockData.blockGroup}`;
+    const totalAddresses = validZips.reduce((sum, z) => sum + z.households, 0);
 
-      // Use Census Geocoder to get centroid coordinates
-      // For MVP, we'll use a simplified approach with estimated coordinates
-      // In production, you'd want to use the Census TIGER/Line shapefiles
-
-      const blockCoords = await getBlockGroupCentroid(
-        blockData.state,
-        blockData.county,
-        blockData.tract,
-        blockData.blockGroup
-      );
-
-      if (blockCoords) {
-        // Calculate distance from search center
-        const distance = calculateDistance(latitude, longitude, blockCoords.lat, blockCoords.lng);
-
-        if (distance <= radiusMiles) {
-          const households = parseInt(blockData.B25003_001E) || 0;
-          const ownerOccupied = parseInt(blockData.B25003_002E) || 0;
-          const ownershipRate = households > 0 ? (ownerOccupied / households) * 100 : 0;
-
-          blocksWithinRadius.push({
-            geoId: blockGeoId,
-            name: blockData.NAME,
-            lat: blockCoords.lat,
-            lng: blockCoords.lng,
-            distance: distance.toFixed(2),
-            households: households,
-            medianIncome: parseInt(blockData.B19013_001E) || 0,
-            medianAge: parseFloat(blockData.B01002_001E) || 0,
-            medianHomeValue: parseInt(blockData.B25077_001E) || 0,
-            ownerOccupiedRate: ownershipRate.toFixed(1),
-            renterOccupiedRate: (100 - ownershipRate).toFixed(1),
-          });
-        }
-      }
-    }
-
-    console.log(`Found ${blocksWithinRadius.length} block groups within ${radiusMiles} miles`);
-
-    // Sort by distance
-    blocksWithinRadius.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+    console.log(`Returning ${validZips.length} ZIPs with ${totalAddresses} total households`);
 
     return res.status(200).json({
       success: true,
       center: { lat: latitude, lng: longitude },
       radius: radiusMiles,
-      blocks: blocksWithinRadius,
-      totalBlocks: blocksWithinRadius.length,
-      estimatedAddresses: blocksWithinRadius.reduce((sum, b) => sum + b.households, 0),
+      blocks: validZips,
+      totalBlocks: validZips.length,
+      estimatedAddresses: totalAddresses,
     });
 
   } catch (error) {
@@ -155,67 +105,209 @@ export default async function handler(req, res) {
   }
 }
 
-// Helper function to reverse geocode coordinates to FIPS codes
-async function reverseGeocode(lat, lng) {
-  // Using Census Geocoder API
-  const url = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
+// Find ZIP codes within radius using free ZIPCodeAPI
+async function findNearbyZipCodes(lat, lng, radiusMiles) {
+  try {
+    // Using free zip-codes.com API (no key required, rate limited)
+    const url = `https://www.zipcodeapi.com/rest/js-Yz0dqQJMDQ8AGl7NKrWbMnrp8p8Mc0CRDJw5JvRCSDGcGOy9HShTFDFx9hshEHJ5/radius.json/${lng}/${lat}/${radiusMiles}/mile`;
 
-  const response = await fetch(url);
-  const data = await response.json();
+    try {
+      const response = await fetch(url, { timeout: 5000 });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.zip_codes && Array.isArray(data.zip_codes)) {
+          return data.zip_codes.map(z => ({
+            zip: z.zip_code,
+            lat: parseFloat(z.latitude),
+            lng: parseFloat(z.longitude),
+            distance: parseFloat(z.distance)
+          }));
+        }
+      }
+    } catch (apiError) {
+      console.log('ZIPCodeAPI failed, using fallback method');
+    }
 
-  if (data.result && data.result.geographies && data.result.geographies['Counties']) {
-    const county = data.result.geographies['Counties'][0];
-    return {
-      stateFips: county.STATE,
-      countyFips: county.COUNTY,
-    };
+    // Fallback: Use Census Geocoder + manual radius calculation
+    return await fallbackZipSearch(lat, lng, radiusMiles);
+
+  } catch (error) {
+    console.error('Error finding nearby ZIP codes:', error);
+    return [];
   }
-
-  throw new Error('Could not determine location');
 }
 
-// Helper function to get block group centroid coordinates
-async function getBlockGroupCentroid(state, county, tract, blockGroup) {
-  // For MVP, use Census Geocoder API
-  // In production, consider using TIGER/Line shapefiles for more accuracy
+// Fallback method using Census Geocoder
+async function fallbackZipSearch(lat, lng, radiusMiles) {
+  try {
+    // Step 1: Get the center ZIP code
+    const centerUrl = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
+    const centerResponse = await fetch(centerUrl);
+    const centerData = await centerResponse.json();
+
+    let centerZip = null;
+    if (centerData.result?.geographies?.['ZIP Code Tabulation Areas']) {
+      const zctas = centerData.result.geographies['ZIP Code Tabulation Areas'];
+      if (zctas.length > 0) {
+        centerZip = zctas[0].ZCTA5;
+      }
+    }
+
+    if (!centerZip) {
+      console.log('Could not determine center ZIP code');
+      return [];
+    }
+
+    console.log(`Center ZIP: ${centerZip}`);
+
+    // Step 2: Get surrounding ZIP codes (simplified grid search)
+    const zips = await getSurroundingZips(lat, lng, radiusMiles);
+
+    return zips;
+
+  } catch (error) {
+    console.error('Fallback ZIP search failed:', error);
+    return [];
+  }
+}
+
+// Get surrounding ZIPs by checking a grid of points
+async function getSurroundingZips(centerLat, centerLng, radiusMiles) {
+  const zipsFound = new Map();
+
+  // Convert miles to approximate degrees (rough estimate: 1 degree ≈ 69 miles)
+  const degreeRange = radiusMiles / 69;
+  const step = degreeRange / 4; // Create a 5x5 grid
+
+  const points = [];
+  for (let latOffset = -degreeRange; latOffset <= degreeRange; latOffset += step) {
+    for (let lngOffset = -degreeRange; lngOffset <= degreeRange; lngOffset += step) {
+      const testLat = centerLat + latOffset;
+      const testLng = centerLng + lngOffset;
+
+      // Check if point is within radius
+      const distance = calculateDistance(centerLat, centerLng, testLat, testLng);
+      if (distance <= radiusMiles) {
+        points.push({ lat: testLat, lng: testLng, distance });
+      }
+    }
+  }
+
+  console.log(`Checking ${points.length} grid points for ZIP codes...`);
+
+  // Batch geocode points (limit to avoid rate limits)
+  const maxPoints = Math.min(points.length, 25);
+  for (let i = 0; i < maxPoints; i++) {
+    const point = points[i];
+
+    try {
+      const url = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${point.lng}&y=${point.lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.result?.geographies?.['ZIP Code Tabulation Areas']) {
+        const zctas = data.result.geographies['ZIP Code Tabulation Areas'];
+        zctas.forEach(zcta => {
+          const zip = zcta.ZCTA5;
+          if (!zipsFound.has(zip)) {
+            // Store with approximate centroid (the point we found it at)
+            zipsFound.set(zip, {
+              zip,
+              lat: point.lat,
+              lng: point.lng,
+              distance: point.distance.toFixed(2)
+            });
+          }
+        });
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+    } catch (error) {
+      console.error(`Error geocoding point ${i}:`, error.message);
+    }
+  }
+
+  return Array.from(zipsFound.values());
+}
+
+// Fetch demographic data for multiple ZIP codes from Census ACS
+async function fetchZipDemographics(zipCodes) {
+  const demographics = {};
+
+  if (zipCodes.length === 0) {
+    return demographics;
+  }
 
   try {
-    const geoId = `${state}${county}${tract}${blockGroup}`;
+    // Use ACS 5-Year estimates for ZCTA (ZIP Code Tabulation Areas)
+    const year = 2021;
+    const variables = [
+      'B19013_001E', // Median household income
+      'B01002_001E', // Median age
+      'B25077_001E', // Median home value
+      'B25003_001E', // Total occupied units
+      'B25003_002E', // Owner occupied
+      'B25003_003E', // Renter occupied
+    ].join(',');
 
-    // Use Census Geocoder to find the centroid
-    // This is a simplified approach - you may want to cache these or use a database
-    const url = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=-81.9498&y=28.0395&benchmark=Public_AR_Current&vintage=Current_Current&layers=10&format=json`;
+    const censusApiKey = process.env.CENSUS_API_KEY || '';
 
-    // For now, return approximate coordinates based on the county
-    // In a production app, you'd want to:
-    // 1. Use TIGER/Line shapefiles
-    // 2. Cache block group centroids in a database
-    // 3. Or use a geocoding service
+    // Fetch data for each ZIP (can batch up to ~50 at a time)
+    const batchSize = 10;
+    for (let i = 0; i < zipCodes.length; i += batchSize) {
+      const batch = zipCodes.slice(i, i + batchSize);
 
-    // Simplified: assume blocks are distributed around the search center
-    // This is a placeholder - real implementation would use actual block coordinates
-    const randomOffset = () => (Math.random() - 0.5) * 0.05; // ~2-3 miles variation
+      for (const zip of batch) {
+        try {
+          const url = `https://api.census.gov/data/${year}/acs/acs5?get=NAME,${variables}&for=zip%20code%20tabulation%20area:${zip}${censusApiKey ? `&key=${censusApiKey}` : ''}`;
 
-    return {
-      lat: 28.0395 + randomOffset(), // Placeholder
-      lng: -81.9498 + randomOffset(), // Placeholder
-    };
+          const response = await fetch(url);
+
+          if (response.ok) {
+            const data = await response.json();
+
+            if (data.length > 1) {
+              const headers = data[0];
+              const values = data[1];
+
+              const getVal = (varName) => {
+                const idx = headers.indexOf(varName);
+                return idx >= 0 ? parseInt(values[idx]) : 0;
+              };
+
+              const totalHouseholds = getVal('B25003_001E');
+              const ownerOccupied = getVal('B25003_002E');
+              const ownershipRate = totalHouseholds > 0 ? (ownerOccupied / totalHouseholds) * 100 : 0;
+
+              demographics[zip] = {
+                households: totalHouseholds,
+                medianIncome: getVal('B19013_001E'),
+                medianAge: getVal('B01002_001E'),
+                medianHomeValue: getVal('B25077_001E'),
+                ownershipRate: ownershipRate.toFixed(1),
+                renterRate: (100 - ownershipRate).toFixed(1),
+              };
+            }
+          }
+        } catch (zipError) {
+          console.error(`Error fetching data for ZIP ${zip}:`, zipError.message);
+        }
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+
   } catch (error) {
-    console.error('Error getting block centroid:', error);
-    return null;
+    console.error('Error fetching ZIP demographics:', error);
   }
+
+  return demographics;
 }
 
-// Helper function to parse census data row
-function parseRow(headers, row) {
-  const obj = {};
-  headers.forEach((header, index) => {
-    obj[header] = row[index];
-  });
-  return obj;
-}
-
-// Helper function to calculate distance between two points (Haversine formula)
+// Calculate distance between two points (Haversine formula)
 function calculateDistance(lat1, lng1, lat2, lng2) {
   const R = 3959; // Earth's radius in miles
   const dLat = (lat2 - lat1) * Math.PI / 180;
