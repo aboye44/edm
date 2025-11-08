@@ -1551,6 +1551,13 @@ function EDDMMapper() {
                           ? route.business
                           : route.households;
 
+                      // Calculate per-route cost estimate (rough estimate based on current tier)
+                      const POSTAGE_RATE = 0.25;
+                      const BUNDLING_RATE = 0.035;
+                      const currentPricing = pricing || calculateTotal();
+                      const estimatedPrintRate = currentPricing?.printRate || 0.17; // Use current tier or default
+                      const routeCost = targetedCount * (estimatedPrintRate + POSTAGE_RATE + BUNDLING_RATE);
+
                       return (
                         <div
                           key={route.id}
@@ -1559,17 +1566,36 @@ function EDDMMapper() {
                           onMouseEnter={() => setHoveredRoute(route.id)}
                           onMouseLeave={() => setHoveredRoute(null)}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleRouteSelection(route.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="route-card-checkbox"
-                          />
-                          <div className="route-card-badge">{route.name}</div>
-                          <div className="route-card-count">{targetedCount.toLocaleString()}</div>
-                          <div className="route-card-count-label">{audienceLabel[deliveryType]}</div>
+                          <div className="route-card-header">
+                            <div className="route-card-title">Route {route.name}</div>
+                            {isSelected && <div className="route-card-checkmark">✓</div>}
+                          </div>
+
+                          <div className="route-card-addresses">
+                            <span className="route-card-count-number">{targetedCount.toLocaleString()}</span>
+                            <span className="route-card-count-label"> {audienceLabel[deliveryType]}</span>
+                          </div>
+
                           <div className="route-card-zip">ZIP {route.zipCode}</div>
+
+                          {isSelected && (
+                            <div className="route-card-cost">
+                              ${routeCost.toFixed(2)} for this route
+                            </div>
+                          )}
+
+                          <div className="route-card-checkbox-container">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleRouteSelection(route.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="route-card-checkbox"
+                            />
+                            <label className="route-card-checkbox-label">
+                              {isSelected ? 'Selected' : 'Select'}
+                            </label>
+                          </div>
                         </div>
                       );
                     })}
