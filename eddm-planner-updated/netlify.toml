@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "build"
+  functions = "netlify/functions"
+  environment = { SECRETS_SCAN_SMART_DETECTION_ENABLED = "false" }
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[functions]
+  node_bundler = "esbuild"
