@@ -1647,8 +1647,8 @@ function EDDMMapper() {
                     <div className="estimate-empty">
                       <h3 className="estimate-empty-title">Get Started</h3>
                       <div className="progress-checklist">
-                        <div className="progress-item completed">
-                          <span className="progress-icon">✓</span>
+                        <div className={`progress-item ${routes.length > 0 ? 'completed' : ''}`}>
+                          <span className="progress-icon">{routes.length > 0 ? '✓' : '○'}</span>
                           <span className="progress-text">Enter ZIP code</span>
                         </div>
                         <div className="progress-item">
