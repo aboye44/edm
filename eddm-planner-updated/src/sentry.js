@@ -19,7 +19,8 @@ import * as Sentry from '@sentry/react';
 const SENTRY_DSN = process.env.REACT_APP_SENTRY_DSN;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-if (SENTRY_DSN && IS_PRODUCTION) {
+// DISABLED: Sentry error tracking disabled per user request
+if (false && SENTRY_DSN && IS_PRODUCTION) {
   Sentry.init({
     dsn: SENTRY_DSN,
 
