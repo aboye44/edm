@@ -1539,6 +1539,234 @@
   margin: 0;
 }
 
+/* Campaign Summary Section */
+.campaign-summary-section {
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 2px solid var(--border-gray);
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mpa-navy);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 var(--space-md) 0;
+}
+
+.campaign-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.campaign-stat-item {
+  background: var(--light-gray);
+  border-radius: 8px;
+  padding: var(--space-md);
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--mpa-navy);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Estimate Cost Section */
+.estimate-cost-section {
+  margin-bottom: var(--space-lg);
+}
+
+.total-cost-display {
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--mpa-navy);
+  text-align: center;
+  margin: var(--space-md) 0;
+  line-height: 1;
+}
+
+.cost-breakdown {
+  background: var(--light-gray);
+  border-radius: 8px;
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.breakdown-item:last-child {
+  margin-bottom: 0;
+}
+
+.breakdown-label {
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+.breakdown-value {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.breakdown-item-total {
+  padding-top: 12px;
+  border-top: 2px solid var(--border-gray);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.breakdown-item-total .breakdown-label,
+.breakdown-item-total .breakdown-value {
+  color: var(--mpa-navy);
+}
+
+/* CTA Buttons - Primary & Secondary */
+.estimate-cta-primary {
+  width: 100%;
+  background: var(--mpa-red);
+  color: var(--white);
+  border: none;
+  border-radius: 8px;
+  padding: var(--space-md) var(--space-lg);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  margin-bottom: var(--space-sm);
+  box-shadow: 0 2px 8px rgba(211, 47, 47, 0.2);
+}
+
+.estimate-cta-primary:hover {
+  background: var(--mpa-red-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(211, 47, 47, 0.35);
+}
+
+.estimate-cta-secondary {
+  width: 100%;
+  background: var(--white);
+  color: var(--mpa-navy);
+  border: 2px solid var(--mpa-navy);
+  border-radius: 8px;
+  padding: 12px var(--space-lg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  margin-bottom: var(--space-sm);
+}
+
+.estimate-cta-secondary:hover {
+  background: var(--mpa-navy);
+  color: var(--white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(44, 62, 124, 0.3);
+}
+
+/* Custom Quote Notice */
+.custom-quote-notice {
+  background: #fff9e6;
+  border: 2px solid #ffd54f;
+  border-radius: 8px;
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.custom-quote-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.custom-quote-text strong {
+  display: block;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.custom-quote-text p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-medium);
+  line-height: 1.5;
+}
+
+/* Progress Checklist (Empty State) */
+.estimate-empty {
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+}
+
+.estimate-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mpa-navy);
+  margin: 0 0 var(--space-lg) 0;
+}
+
+.progress-checklist {
+  text-align: left;
+}
+
+.progress-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm);
+  border-radius: 6px;
+  transition: background var(--transition-base);
+}
+
+.progress-item:last-child {
+  margin-bottom: 0;
+}
+
+.progress-item.completed {
+  background: rgba(0, 200, 150, 0.1);
+}
+
+.progress-item.completed .progress-icon {
+  color: var(--mpa-green);
+  font-weight: 700;
+}
+
+.progress-icon {
+  font-size: 20px;
+  color: var(--text-light);
+  min-width: 24px;
+  text-align: center;
+}
+
+.progress-text {
+  font-size: 14px;
+  color: var(--text-dark);
+  line-height: 1.4;
+}
+
 .estimate-empty {
   text-align: center;
   padding: var(--space-xl) var(--space-md);

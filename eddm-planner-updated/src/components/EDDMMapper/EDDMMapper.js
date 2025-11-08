@@ -1553,34 +1553,41 @@ function EDDMMapper() {
 
                   {hasSelection ? (
                     <>
-                      <div className="estimate-header">
-                        <div className="estimate-header-text">
-                          {selectedRoutes.length} routes | {pricing.addresses.toLocaleString()} addresses
+                      {/* YOUR CAMPAIGN Section */}
+                      <div className="campaign-summary-section">
+                        <h3 className="section-title">YOUR CAMPAIGN</h3>
+                        <div className="campaign-stats">
+                          <div className="campaign-stat-item">
+                            <span className="stat-value">{selectedRoutes.length}</span>
+                            <span className="stat-label">routes selected</span>
+                          </div>
+                          <div className="campaign-stat-item">
+                            <span className="stat-value">{pricing.addresses.toLocaleString()}</span>
+                            <span className="stat-label">total addresses</span>
+                          </div>
                         </div>
                       </div>
 
                       {pricing.belowMinimum ? (
                         <>
                           {/* Below Minimum - Custom Quote Required */}
-                          <div className="estimate-below-minimum">
-                            <div className="below-minimum-icon">⚠️</div>
-                            <h3>Custom Quote Required</h3>
-                            <p>
-                              Your selection ({pricing.addresses.toLocaleString()} addresses) is below our 
-                              {pricing.minimumQuantity}-piece minimum for instant pricing.
-                            </p>
-                            <p className="below-minimum-cta">
-                              <strong>Next step:</strong> Submit your information below and we'll prepare 
-                              a custom quote within 24 hours.
-                            </p>
+                          <div className="estimate-cost-section">
+                            <h3 className="section-title">ESTIMATED COST</h3>
+                            <div className="custom-quote-notice">
+                              <div className="custom-quote-icon">⚠️</div>
+                              <div className="custom-quote-text">
+                                <strong>Custom Quote Required</strong>
+                                <p>Your selection is below our {pricing.minimumQuantity.toLocaleString()}-piece minimum for instant pricing.</p>
+                              </div>
+                            </div>
                           </div>
 
-                          <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                            REQUEST CUSTOM QUOTE
+                          <button className="estimate-cta-primary" onClick={() => setShowQuoteForm(true)}>
+                            Get Full Quote & Pricing Breakdown
                           </button>
 
-                          <button className="estimate-cta estimate-cta-email" onClick={() => setShowEmailEstimate(true)}>
-                            📧 EMAIL ME ESTIMATE
+                          <button className="estimate-cta-secondary" onClick={() => setShowEmailEstimate(true)}>
+                            📧 Email Me Estimate
                           </button>
 
                           <p className="estimate-fine-print">
@@ -1589,14 +1596,26 @@ function EDDMMapper() {
                         </>
                       ) : (
                         <>
-                          {/* Above Minimum - Show Pricing */}
-                          <div className="estimate-total-display">
-                            <div className="estimate-label">Estimated Campaign Cost</div>
-                            <div className="estimate-total-amount">
+                          {/* Above Minimum - Show Full Breakdown */}
+                          <div className="estimate-cost-section">
+                            <h3 className="section-title">ESTIMATED COST</h3>
+                            <div className="total-cost-display">
                               ${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </div>
-                            <div className="estimate-includes">
-                              Includes printing, postage & delivery
+
+                            <div className="cost-breakdown">
+                              <div className="breakdown-item">
+                                <span className="breakdown-label">• Printing</span>
+                                <span className="breakdown-value">${pricing.printing.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                              </div>
+                              <div className="breakdown-item">
+                                <span className="breakdown-label">• Postage</span>
+                                <span className="breakdown-value">${pricing.postage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                              </div>
+                              <div className="breakdown-item breakdown-item-total">
+                                <span className="breakdown-label">• Total per piece</span>
+                                <span className="breakdown-value">${pricing.costPerPiece.toFixed(2)}</span>
+                              </div>
                             </div>
                           </div>
 
@@ -1606,28 +1625,45 @@ function EDDMMapper() {
                             </div>
                           )}
 
-                          <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                            REQUEST FINAL QUOTE
+                          <button className="estimate-cta-primary" onClick={() => setShowQuoteForm(true)}>
+                            Get Full Quote & Pricing Breakdown
                           </button>
 
-                          <button className="estimate-cta estimate-cta-email" onClick={() => setShowEmailEstimate(true)}>
-                            📧 EMAIL ME ESTIMATE
+                          <button className="estimate-cta-secondary" onClick={() => setShowEmailEstimate(true)}>
+                            📧 Email Me Estimate
                           </button>
 
-                          <button className="estimate-cta estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
-                            💰 SEE POTENTIAL ROI
+                          <button className="estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
+                            💰 See Potential ROI
                           </button>
 
                           <p className="estimate-fine-print">
-                            *This is an estimate only. Contact us for final pricing and custom options. Based on 6.25x9 postcard, 100# gloss cover, full color both sides.
+                            *Estimate based on 6.25x9 postcard, 100# gloss cover, full color both sides. Contact us for final pricing and custom options.
                           </p>
                         </>
                       )}
                     </>
                   ) : (
                     <div className="estimate-empty">
-                      <div className="estimate-empty-icon">📍</div>
-                      <p className="estimate-empty-text">Select routes on the map to see an estimate</p>
+                      <h3 className="estimate-empty-title">Get Started</h3>
+                      <div className="progress-checklist">
+                        <div className="progress-item completed">
+                          <span className="progress-icon">✓</span>
+                          <span className="progress-text">Enter ZIP code</span>
+                        </div>
+                        <div className="progress-item">
+                          <span className="progress-icon">○</span>
+                          <span className="progress-text">Select your target routes</span>
+                        </div>
+                        <div className="progress-item">
+                          <span className="progress-icon">○</span>
+                          <span className="progress-text">See instant pricing</span>
+                        </div>
+                        <div className="progress-item">
+                          <span className="progress-icon">○</span>
+                          <span className="progress-text">Get your campaign plan</span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
