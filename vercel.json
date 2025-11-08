@@ -1,28 +1,10 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "eddm-planner-updated/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "eddm-planner-updated/build"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/eddm-planner-updated/build/$1"
-    }
-  ],
+  "buildCommand": "cd eddm-planner-updated && npm install && npm run build",
+  "outputDirectory": "eddm-planner-updated/build",
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/eddm-planner-updated/build/index.html"
+      "destination": "/index.html"
     }
   ]
 }
