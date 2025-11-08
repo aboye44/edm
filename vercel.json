@@ -4,7 +4,7 @@
   "installCommand": "cd eddm-planner-updated && npm install",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

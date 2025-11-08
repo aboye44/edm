@@ -7,8 +7,8 @@ import './EDDMMapper.css';
 // Google Maps libraries to load
 const GOOGLE_MAPS_LIBRARIES = ['places'];
 
-// Netlify Function endpoint for fetching EDDM routes (proxies USPS API to avoid CORS)
-const EDDM_API_ENDPOINT = '/.netlify/functions/eddm-routes';
+// Vercel Serverless Function endpoint for fetching EDDM routes (proxies USPS API to avoid CORS)
+const EDDM_API_ENDPOINT = '/api/eddm-routes';
 
 // Calculate distance between two lat/lng points in miles using Haversine formula
 const calculateDistance = (lat1, lng1, lat2, lng2) => {
