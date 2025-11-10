@@ -1199,7 +1199,7 @@ function EDDMMapper() {
           {/* Hero Section - Modern Gradient */}
           <section className="eddm-hero">
             <div className="hero-content">
-              <h1 className="hero-title">EDDM Campaign Planner</h1>
+              <h1 className="hero-title">EDDM Cost Calculator — See Your Campaign Price in 60 Seconds</h1>
               <p className="hero-subtitle">Plan, target, and launch your Every Door Direct Mail campaign with precision. Get instant pricing and reach thousands of households in minutes.</p>
 
               {/* Social Proof Badges */}
@@ -1835,6 +1835,35 @@ function EDDMMapper() {
               </div>
             </div>
           </div>
+
+          {/* FAQ Section */}
+          <section className="faq-section">
+            <div className="faq-container">
+              <h2 className="faq-title">Frequently Asked Questions</h2>
+
+              <div className="faq-grid">
+                <div className="faq-item">
+                  <h3 className="faq-question">How much does EDDM cost per piece?</h3>
+                  <p className="faq-answer">EDDM pricing typically ranges from $0.19–$0.24 per piece including postage, printing, and delivery. Our calculator shows exact costs based on your selected routes and mail piece specifications.</p>
+                </div>
+
+                <div className="faq-item">
+                  <h3 className="faq-question">What's the minimum order for EDDM?</h3>
+                  <p className="faq-answer">USPS requires a minimum of 200 pieces per mailing. Our tool enforces this minimum and shows you which routes meet the requirement.</p>
+                </div>
+
+                <div className="faq-item">
+                  <h3 className="faq-question">How do I choose EDDM routes?</h3>
+                  <p className="faq-answer">Use our interactive map to select carrier routes by clicking on coverage areas. You can filter by household count, income levels, and age demographics to target your ideal customers.</p>
+                </div>
+
+                <div className="faq-item">
+                  <h3 className="faq-question">Can I target specific demographics with EDDM?</h3>
+                  <p className="faq-answer">Yes. While EDDM delivers to every address in a route, you can select routes based on demographic data including household income, age distribution, and housing type to reach your target audience.</p>
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* Simple Footer Navigation */}
           <footer className="site-footer">
