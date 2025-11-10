@@ -723,11 +723,11 @@ function EDDMMapper() {
 
     // Tiered print pricing based on MPA's actual rates
     const printPricingTiers = [
-      { min: 500, max: 999, rate: 0.23 },
-      { min: 1000, max: 2499, rate: 0.17 },
-      { min: 2500, max: 4999, rate: 0.12 },
+      { min: 500, max: 999, rate: 0.325 },
+      { min: 1000, max: 2499, rate: 0.230 },
+      { min: 2500, max: 4999, rate: 0.135 },
       { min: 5000, max: 9999, rate: 0.10 },
-      { min: 10000, max: Infinity, rate: 0.089 }
+      { min: 10000, max: Infinity, rate: 0.070 }
     ];
 
     // Find current print rate - return null if below 500 minimum
