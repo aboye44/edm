@@ -3548,6 +3548,148 @@ html {
   box-shadow: none;
 }
 
+/* Premium Targeted Mail Card */
+.finder-card-premium {
+  background: linear-gradient(135deg, #f8f9ff 0%, #fff8fb 100%);
+  border: 2px solid #e3e8ff;
+  position: relative;
+  overflow: hidden;
+}
+
+.finder-card-premium::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(74, 144, 226, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.finder-card-premium:hover {
+  border-color: var(--mpa-light-blue);
+  box-shadow: 0 12px 40px rgba(74, 144, 226, 0.15), 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.finder-card-premium .finder-card-header {
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.finder-card-icon-premium {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  box-shadow: 0 4px 12px rgba(255, 165, 0, 0.4);
+}
+
+.finder-card-premium:hover .finder-card-icon-premium {
+  transform: scale(1.05) rotate(-5deg);
+  box-shadow: 0 6px 16px rgba(255, 165, 0, 0.5);
+}
+
+.premium-badge {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  color: #1a1a1a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(255, 165, 0, 0.3);
+}
+
+.finder-card-description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-medium);
+  margin: 0;
+}
+
+.premium-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.premium-features li {
+  font-size: 13px;
+  color: var(--text-medium);
+  padding-left: 20px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.premium-features li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #00c896;
+  font-weight: 700;
+}
+
+.finder-btn-premium {
+  background: linear-gradient(135deg, var(--mpa-navy) 0%, #1a2451 100%);
+  box-shadow: 0 4px 12px rgba(44, 62, 124, 0.3);
+}
+
+.finder-btn-premium:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1a2451 0%, var(--mpa-navy) 100%);
+  box-shadow: 0 8px 20px rgba(44, 62, 124, 0.4);
+}
+
+.premium-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-medium);
+  margin: -8px 0 0 0;
+  font-weight: 500;
+}
+
+/* Responsive adjustments for 3-column grid */
+@media (min-width: 1024px) {
+  .route-finder-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1023px) and (min-width: 768px) {
+  .route-finder-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .finder-card-premium {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .route-finder-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .finder-card {
+    padding: 24px;
+  }
+
+  .finder-card-premium {
+    margin-top: 8px;
+  }
+
+  .premium-badge {
+    position: static;
+    display: inline-block;
+    margin-left: auto;
+  }
+}
+
 /* Map Container - Clean & Professional - OVERRIDE */
 .map-container {
   width: 100%;

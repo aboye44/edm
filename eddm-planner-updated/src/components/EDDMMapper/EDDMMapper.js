@@ -1359,6 +1359,35 @@ function EDDMMapper() {
                   </div>
                 )}
               </div>
+
+              {/* Targeted Mail Card - Premium Option */}
+              <div className="finder-card finder-card-premium">
+                <div className="finder-card-header">
+                  <div className="finder-card-icon finder-card-icon-premium">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M10 2L12 8L18 8L13 12L15 18L10 14L5 18L7 12L2 8L8 8L10 2Z" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <h3 className="finder-card-title">Target Specific Demographics</h3>
+                  <span className="premium-badge">Premium</span>
+                </div>
+                <p className="finder-card-description">
+                  Skip the saturation. Mail only to households that match your ideal customer profile with 200+ demographic filters.
+                </p>
+                <ul className="premium-features">
+                  <li>Income, age, homeowner status</li>
+                  <li>New movers, purchase behavior</li>
+                  <li>Custom audience lists</li>
+                </ul>
+                <button
+                  type="button"
+                  className="finder-btn finder-btn-premium"
+                  onClick={() => setShowQuoteForm(true)}
+                >
+                  Get Targeted Mail Quote
+                </button>
+                <p className="premium-note">Higher response rates • Lower waste</p>
+              </div>
             </div>
           </div>
 
