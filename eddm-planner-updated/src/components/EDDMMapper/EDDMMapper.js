@@ -1844,7 +1844,7 @@ function EDDMMapper() {
               <div className="faq-grid">
                 <div className="faq-item">
                   <h3 className="faq-question">How much does EDDM cost per piece?</h3>
-                  <p className="faq-answer">EDDM pricing typically ranges from $0.19–$0.24 per piece including postage, printing, and delivery. Our calculator shows exact costs based on your selected routes and mail piece specifications.</p>
+                  <p className="faq-answer">EDDM pricing typically ranges from $0.40–$0.70 per piece including postage, printing, and delivery. Our calculator shows exact costs based on your selected routes and mail piece specifications.</p>
                 </div>
 
                 <div className="faq-item">
