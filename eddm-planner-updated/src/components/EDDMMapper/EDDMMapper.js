@@ -1382,7 +1382,7 @@ function EDDMMapper() {
                 <button
                   type="button"
                   className="finder-btn finder-btn-premium"
-                  onClick={() => setShowQuoteForm(true)}
+                  onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}
                 >
                   Get Targeted Mail Quote
                 </button>
@@ -1774,10 +1774,7 @@ function EDDMMapper() {
                             <p className="upsell-tagline">
                               <strong>Higher response rates. Lower waste.</strong> Same reliable MPA execution.
                             </p>
-                            <button className="upsell-cta" onClick={() => {
-                              setShowQuoteForm(true);
-                              // You could add a flag here to indicate targeted mail interest
-                            }}>
+                            <button className="upsell-cta" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
                               Get Targeted Mail Quote
                             </button>
                           </div>
