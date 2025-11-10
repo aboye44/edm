@@ -1905,22 +1905,20 @@ function EDDMMapper() {
               <div className="form-row">
                 <input
                   type="text"
-                  placeholder="Company Name *"
+                  placeholder="Company Name (Optional)"
                   value={formData.company}
                   onChange={(e) => setFormData({...formData, company: e.target.value})}
-                  required
                 />
               </div>
 
               <h3 className="form-section-title">Project Specifications</h3>
 
               <div className="form-row">
-                <label className="form-label">Postcard Size *</label>
+                <label className="form-label">Postcard Size (Optional)</label>
                 <select
                   value={formData.postcardSize}
                   onChange={(e) => setFormData({...formData, postcardSize: e.target.value})}
                   className="form-select"
-                  required
                 >
                   <option value="6.25&quot; x 9&quot; (Standard)">6.25" x 9" (Standard)</option>
                   <option value="6&quot; x 11&quot;">6" x 11"</option>
@@ -1934,18 +1932,16 @@ function EDDMMapper() {
                     value={formData.customSize}
                     onChange={(e) => setFormData({...formData, customSize: e.target.value})}
                     className="form-input-sub"
-                    required
                   />
                 )}
               </div>
 
               <div className="form-row">
-                <label className="form-label">Paper Stock *</label>
+                <label className="form-label">Paper Stock (Optional)</label>
                 <select
                   value={formData.paperStock}
                   onChange={(e) => setFormData({...formData, paperStock: e.target.value})}
                   className="form-select"
-                  required
                 >
                   <option value="100# Gloss Cover (Most Common)">100# Gloss Cover (Most Common)</option>
                   <option value="14pt Cardstock">14pt Cardstock</option>
@@ -1959,18 +1955,16 @@ function EDDMMapper() {
                     value={formData.customStock}
                     onChange={(e) => setFormData({...formData, customStock: e.target.value})}
                     className="form-input-sub"
-                    required
                   />
                 )}
               </div>
 
               <div className="form-row">
-                <label className="form-label">Printing Options *</label>
+                <label className="form-label">Printing Options (Optional)</label>
                 <select
                   value={formData.printingOptions}
                   onChange={(e) => setFormData({...formData, printingOptions: e.target.value})}
                   className="form-select"
-                  required
                 >
                   <option value="Full Color Both Sides (most common)">Full Color Both Sides (most common)</option>
                   <option value="Full Color Front, Black & White Back">Full Color Front, Black & White Back</option>
@@ -2039,12 +2033,11 @@ function EDDMMapper() {
               )}
 
               <div className="form-row">
-                <label className="form-label">Timeline *</label>
+                <label className="form-label">Timeline (Optional)</label>
                 <select
                   value={formData.timeline}
                   onChange={(e) => setFormData({...formData, timeline: e.target.value})}
                   className="form-select"
-                  required
                 >
                   <option value="">Select timeline</option>
                   <option value="This month">This month</option>
