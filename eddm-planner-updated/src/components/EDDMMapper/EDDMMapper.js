@@ -859,12 +859,9 @@ function EDDMMapper() {
 
         // If there's a design file, we'll send leadData without the file
         // File will be emailed separately (handled by Zapier)
+        // Note: No Content-Type header to avoid CORS preflight - Zapier auto-detects JSON
         const response = await fetch(webhookUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
           body: JSON.stringify(leadData),
           // Timeout after 10 seconds
           signal: AbortSignal.timeout(10000)
@@ -1003,7 +1000,6 @@ function EDDMMapper() {
       try {
         const response = await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(leadData),
           signal: AbortSignal.timeout(10000)
         });
@@ -1068,7 +1064,6 @@ function EDDMMapper() {
       try {
         await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(leadData),
           signal: AbortSignal.timeout(10000)
         });
@@ -1128,7 +1123,6 @@ function EDDMMapper() {
       try {
         await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(leadData),
           signal: AbortSignal.timeout(10000)
         });
