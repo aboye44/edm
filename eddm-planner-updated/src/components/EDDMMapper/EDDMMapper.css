@@ -73,10 +73,16 @@
 }
 
 .mpa-header-logo {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--mpa-navy);
   text-decoration: none;
+  transition: color var(--transition-base);
+  white-space: nowrap;
+}
+
+.mpa-header-logo:hover {
+  color: var(--mpa-red);
 }
 
 .mpa-header-center {
@@ -107,7 +113,7 @@
   }
 
   .mpa-header-logo {
-    font-size: 20px;
+    font-size: 14px;
   }
 
   .mpa-header-center {

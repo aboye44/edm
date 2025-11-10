@@ -1182,7 +1182,9 @@ function EDDMMapper() {
       <div className="eddm-mapper">
         {/* MPA Header - Fixed white header matching mailpro.org */}
         <header className="mpa-header">
-          <div className="mpa-header-logo">MPA</div>
+          <a href="https://mailpro.org" className="mpa-header-logo" target="_blank" rel="noopener noreferrer">
+            Mail Processing Associates
+          </a>
           <div className="mpa-header-center">EDDM Campaign Planner</div>
           <div className="mpa-header-actions">
             {selectedRoutes.length > 0 && (
