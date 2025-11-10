@@ -1839,6 +1839,21 @@ function EDDMMapper() {
               </div>
             </div>
           </div>
+
+          {/* Simple Footer Navigation */}
+          <footer className="site-footer">
+            <div className="footer-content">
+              <div className="footer-links">
+                <a href="https://mailpro.org" target="_blank" rel="noopener noreferrer">Home</a>
+                <a href="https://mailpro.org/services" target="_blank" rel="noopener noreferrer">Services</a>
+                <a href="https://mailpro.org/about" target="_blank" rel="noopener noreferrer">About Us</a>
+                <a href="https://mailpro.org/request-a-quote" target="_blank" rel="noopener noreferrer">Contact</a>
+              </div>
+              <div className="footer-copyright">
+                © {new Date().getFullYear()} Mail Processing Associates. All rights reserved.
+              </div>
+            </div>
+          </footer>
         </div>
       </div>
 
