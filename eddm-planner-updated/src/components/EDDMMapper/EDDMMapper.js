@@ -1722,6 +1722,37 @@ function EDDMMapper() {
                             💰 See Potential ROI
                           </button>
 
+                          {/* Targeted Mail Upsell */}
+                          <div className="targeted-mail-upsell">
+                            <div className="upsell-header">
+                              <svg className="upsell-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" fill="currentColor"/>
+                              </svg>
+                              <h4 className="upsell-title">Need More Precision Than EDDM?</h4>
+                            </div>
+                            <p className="upsell-body">
+                              EDDM reaches every address in a route—great for broad awareness. But if you want to target specific demographics, income levels, homeowner status, or purchase behavior, our <strong>Targeted Direct Mail</strong> service gives you surgical precision.
+                            </p>
+                            <div className="upsell-benefits">
+                              <p className="upsell-subtitle">Perfect for:</p>
+                              <ul className="upsell-list">
+                                <li>Reaching only homeowners making $75K+</li>
+                                <li>Targeting specific age ranges or household types</li>
+                                <li>Mailing to new movers or recent home buyers</li>
+                                <li>Custom audience selection with 200+ data filters</li>
+                              </ul>
+                            </div>
+                            <p className="upsell-tagline">
+                              <strong>Higher response rates. Lower waste.</strong> Same reliable MPA execution.
+                            </p>
+                            <button className="upsell-cta" onClick={() => {
+                              setShowQuoteForm(true);
+                              // You could add a flag here to indicate targeted mail interest
+                            }}>
+                              Get Targeted Mail Quote
+                            </button>
+                          </div>
+
                           <p className="estimate-fine-print">
                             *Estimate based on 6.25x9 postcard, 100# gloss cover, full color both sides. Contact us for final pricing and custom options.
                           </p>

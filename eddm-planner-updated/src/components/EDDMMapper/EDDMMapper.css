@@ -3895,6 +3895,180 @@ html {
 }
 
 /* ========================================
+   TARGETED MAIL UPSELL
+   ======================================== */
+
+.targeted-mail-upsell {
+  margin: 28px 0 24px 0;
+  padding: 24px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #fff5f8 100%);
+  border: 2px solid #e3e8ff;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.targeted-mail-upsell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--mpa-light-blue) 0%, var(--mpa-navy) 100%);
+}
+
+.upsell-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.upsell-icon {
+  flex-shrink: 0;
+  color: var(--mpa-light-blue);
+}
+
+.upsell-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mpa-navy);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.upsell-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-dark);
+  margin: 0 0 16px 0;
+}
+
+.upsell-body strong {
+  color: var(--mpa-navy);
+  font-weight: 600;
+}
+
+.upsell-benefits {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e8ebf7;
+}
+
+.upsell-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mpa-navy);
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.upsell-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.upsell-list li {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-medium);
+  padding-left: 24px;
+  position: relative;
+}
+
+.upsell-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #00c896;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.upsell-tagline {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dark);
+  margin: 0 0 16px 0;
+  text-align: center;
+}
+
+.upsell-tagline strong {
+  color: var(--mpa-navy);
+}
+
+.upsell-cta {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, var(--mpa-navy) 0%, #1a2451 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(44, 62, 124, 0.25);
+}
+
+.upsell-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(44, 62, 124, 0.35);
+  background: linear-gradient(135deg, #1a2451 0%, var(--mpa-navy) 100%);
+}
+
+.upsell-cta:active {
+  transform: translateY(0);
+}
+
+/* Mobile responsiveness for targeted mail upsell */
+@media (max-width: 768px) {
+  .targeted-mail-upsell {
+    padding: 20px;
+    margin: 20px 0;
+  }
+
+  .upsell-header {
+    gap: 10px;
+  }
+
+  .upsell-title {
+    font-size: 16px;
+  }
+
+  .upsell-body {
+    font-size: 13px;
+  }
+
+  .upsell-benefits {
+    padding: 14px;
+  }
+
+  .upsell-subtitle {
+    font-size: 12px;
+  }
+
+  .upsell-list li {
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .upsell-tagline {
+    font-size: 13px;
+  }
+
+  .upsell-cta {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+}
+
+/* ========================================
    SITE FOOTER - Minimal Navigation
    ======================================== */
 
