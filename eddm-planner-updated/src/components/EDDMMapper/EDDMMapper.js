@@ -854,6 +854,8 @@ function EDDMMapper() {
     if (webhookUrl) {
       try {
         console.log('📤 Sending lead to webhook...', leadData.id);
+        console.log('📊 Lead data being sent:', leadData);
+        console.log('🔗 Webhook URL:', webhookUrl);
 
         // If there's a design file, we'll send leadData without the file
         // File will be emailed separately (handled by Zapier)
