@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete } from '@react-google-maps/api';
 import * as Sentry from '@sentry/react';
 import ROICalculator from '../ROICalculator/ROICalculator';
+import { getTurnkeyEstimate, formatCurrency, RECOMMENDED_MINIMUM } from '../../utils/pricing';
 import './EDDMMapper.css';
 
 // Google Maps libraries to load
@@ -713,73 +714,23 @@ function EDDMMapper() {
       return sum + r.households;
     }, 0);
 
-    // MPA ACTUAL PRICING - 6.25x9 EDDM Postcards (100# Gloss Cover, 4/4)
-    const POSTAGE_RATE = 0.25;      // Includes drop shipping
-    const BUNDLING_RATE = 0.035;    // Fixed bundling fee
-
-    // Tiered print pricing based on MPA's actual rates
-    const printPricingTiers = [
-      { min: 500, max: 999, rate: 0.23 },
-      { min: 1000, max: 2499, rate: 0.17 },
-      { min: 2500, max: 4999, rate: 0.12 },
-      { min: 5000, max: 9999, rate: 0.10 },
-      { min: 10000, max: Infinity, rate: 0.089 }
-    ];
-
-    // Find current print rate - return null if below 500 minimum
-    const currentTierObj = printPricingTiers.find(
-      tier => totalAddresses >= tier.min && totalAddresses <= tier.max
-    );
-    const printRate = currentTierObj ? currentTierObj.rate : null;
-
-    // If below minimum (500), return special indicator
-    if (!printRate) {
-      return {
-        addresses: totalAddresses,
-        belowMinimum: true,
-        minimumQuantity: 500
-      };
-    }
-
-    // Calculate costs
-    const printCost = totalAddresses * printRate;
-    const postageCost = totalAddresses * POSTAGE_RATE;
-    const bundlingCost = totalAddresses * BUNDLING_RATE;
-    const totalCost = printCost + postageCost + bundlingCost;
-
-    // Find next tier
-    const currentTierIndex = printPricingTiers.findIndex(tier => tier === currentTierObj);
-    const nextTierObj = currentTierIndex < printPricingTiers.length - 1
-      ? printPricingTiers[currentTierIndex + 1]
-      : null;
-
-    const addressesUntilNextDiscount = nextTierObj
-      ? nextTierObj.min - totalAddresses
-      : 0;
-
-    // Calculate potential savings
-    let potentialSavings = 0;
-    if (nextTierObj) {
-      const currentTotal = totalCost;
-      const nextTierPrint = nextTierObj.min * nextTierObj.rate;
-      const nextTierPostage = nextTierObj.min * POSTAGE_RATE;
-      const nextTierBundling = nextTierObj.min * BUNDLING_RATE;
-      const nextTierTotal = nextTierPrint + nextTierPostage + nextTierBundling;
-      potentialSavings = currentTotal - nextTierTotal;
-    }
+    // Use the new turnkey pricing utility
+    // All-inclusive: print + prep + postage + USPS drop-off
+    const estimate = getTurnkeyEstimate(totalAddresses);
 
     return {
       addresses: totalAddresses,
+      // We now always show pricing (even below recommended minimum)
       belowMinimum: false,
-      printRate,
-      printCost,
-      postageCost,
-      bundlingCost,
-      total: totalCost,
-      currentTier: `Printing @ $${printRate.toFixed(3)}/piece`,
-      nextTier: nextTierObj ? `$${nextTierObj.rate.toFixed(3)}/piece` : null,
-      addressesUntilNextDiscount,
-      potentialSavings
+      belowRecommended: estimate.belowRecommended,
+      recommendedMinimum: estimate.recommendedMinimum,
+      // Turnkey pricing fields
+      ratePerPiece: estimate.ratePerPiece,
+      total: estimate.total,
+      currentTier: estimate.currentTierLabel,
+      nextTier: estimate.nextTierLabel,
+      addressesUntilNextDiscount: estimate.piecesUntilNextDiscount,
+      potentialSavings: estimate.potentialSavings
     };
   }, [routes, selectedRoutes, deliveryType]);
 
@@ -803,18 +754,12 @@ function EDDMMapper() {
       routeNames: selectedRouteData.map(r => `${r.name} (ZIP ${r.zipCode})`).join(', '),
       totalAddresses: pricing.addresses,
       deliveryType,
-      // Only include pricing if above minimum
-      ...(pricing.belowMinimum ? {
-        belowMinimum: true,
-        minimumQuantity: pricing.minimumQuantity
-      } : {
-        printCost: pricing.printCost.toFixed(2),
-        postageCost: pricing.postageCost.toFixed(2),
-        bundlingCost: pricing.bundlingCost.toFixed(2),
-        printRate: pricing.printRate,
-        pricingTier: pricing.currentTier,
-        estimatedTotal: pricing.total.toFixed(2)
-      }),
+      // Turnkey pricing (all-inclusive: print + prep + postage + drop-off)
+      estimatedPieces: pricing.addresses,
+      estimatedRatePerPiece: pricing.ratePerPiece,
+      estimatedTotalCost: pricing.total.toFixed(2),
+      pricingTier: pricing.currentTier,
+      belowRecommended: pricing.belowRecommended || false,
       designStatus: formData.designOption === 'need-design' ? 'Needs Design Services' : 'Has Print-Ready Files',
       hasDesignFile: formData.designFile ? true : false,
       designFileName: formData.designFile ? formData.designFile.name : null,
@@ -829,10 +774,11 @@ function EDDMMapper() {
       level: 'info',
       data: {
         company: formData.company,
-        totalAddresses: pricing.addresses,
-        estimatedTotal: pricing.belowMinimum ? 'Below minimum' : pricing.total,
+        estimatedPieces: pricing.addresses,
+        estimatedRatePerPiece: pricing.ratePerPiece,
+        estimatedTotal: pricing.total,
         routesSelected: selectedRoutes.length,
-        belowMinimum: pricing.belowMinimum
+        belowRecommended: pricing.belowRecommended
       }
     });
 
@@ -892,7 +838,8 @@ function EDDMMapper() {
             lead: {
               leadId: leadData.id,
               company: leadData.company,
-              estimatedTotal: leadData.estimatedTotal || 'Custom quote required'
+              estimatedTotalCost: leadData.estimatedTotalCost,
+              estimatedRatePerPiece: leadData.estimatedRatePerPiece
             }
           }
         });
@@ -923,14 +870,14 @@ function EDDMMapper() {
     setSubmitting(false);
 
     // Success! Show confirmation
+    const confirmationNote = pricing.belowRecommended
+      ? `\n\nNote: For quantities under ${pricing.recommendedMinimum.toLocaleString()} pieces, we recommend adding more routes for better ROI.`
+      : '';
+
     if (webhookSuccess) {
-      if (pricing.belowMinimum) {
-        alert(`✅ Quote request received!\n\nYour selection (${pricing.addresses} addresses) requires a custom quote. We'll contact you within 2 business hours with pricing options.\n\nReference ID: ${leadData.id}`);
-      } else {
-        alert(`✅ Quote request received!\n\nWe'll contact you within 2 business hours with final pricing and a detailed proposal.\n\nReference ID: ${leadData.id}`);
-      }
+      alert(`✅ Quote request received!\n\nEstimate: ${pricing.addresses.toLocaleString()} pieces @ $${pricing.ratePerPiece.toFixed(2)}/piece = $${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\nWe'll contact you within 2 business hours with final pricing and a detailed proposal.${confirmationNote}\n\nReference ID: ${leadData.id}`);
     } else {
-      alert(`✅ Quote request saved!\n\nYour information has been recorded. We'll contact you within 2 business hours with ${pricing.belowMinimum ? 'pricing options' : 'final pricing and a detailed proposal'}.\n\nReference ID: ${leadData.id}`);
+      alert(`✅ Quote request saved!\n\nEstimate: ${pricing.addresses.toLocaleString()} pieces @ $${pricing.ratePerPiece.toFixed(2)}/piece = $${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\nYour information has been recorded. We'll contact you within 2 business hours with final pricing and a detailed proposal.${confirmationNote}\n\nReference ID: ${leadData.id}`);
     }
 
     // Reset form and close modal
@@ -1346,62 +1293,53 @@ function EDDMMapper() {
                         </div>
                       </div>
 
-                      {pricing.belowMinimum ? (
-                        <>
-                          {/* Below Minimum - Custom Quote Required */}
-                          <div className="estimate-below-minimum">
-                            <div className="below-minimum-icon">⚠️</div>
-                            <h3>Custom Quote Required</h3>
+                      {/* Turnkey Pricing Display */}
+                      <>
+                        {pricing.belowRecommended && (
+                          <div className="estimate-below-recommended">
+                            <div className="below-recommended-icon">ℹ️</div>
                             <p>
-                              Your selection ({pricing.addresses.toLocaleString()} addresses) is below our 
-                              {pricing.minimumQuantity}-piece minimum for instant pricing.
-                            </p>
-                            <p className="below-minimum-cta">
-                              <strong>Next step:</strong> Submit your information below and we'll prepare 
-                              a custom quote within 24 hours.
+                              EDDM campaigns under {pricing.recommendedMinimum.toLocaleString()} pieces are not typically
+                              cost-effective. Consider adding more routes to maximize your ROI.
                             </p>
                           </div>
+                        )}
 
-                          <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                            REQUEST CUSTOM QUOTE
-                          </button>
-
-                          <p className="estimate-fine-print">
-                            We'll provide competitive pricing options for your campaign size and reach out within 24 hours.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          {/* Above Minimum - Show Pricing */}
-                          <div className="estimate-total-display">
-                            <div className="estimate-label">Estimated Campaign Cost</div>
-                            <div className="estimate-total-amount">
+                        <div className="estimate-total-display">
+                          <div className="estimate-breakdown-row">
+                            <span className="estimate-label">Estimated pieces:</span>
+                            <span className="estimate-value">{pricing.addresses.toLocaleString()}</span>
+                          </div>
+                          <div className="estimate-breakdown-row">
+                            <span className="estimate-label">Turnkey rate:</span>
+                            <span className="estimate-value">${pricing.ratePerPiece.toFixed(2)} per piece</span>
+                          </div>
+                          <div className="estimate-total-row">
+                            <span className="estimate-label">Estimated total:</span>
+                            <span className="estimate-total-amount">
                               ${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                            </div>
-                            <div className="estimate-includes">
-                              Includes printing, postage & delivery
-                            </div>
+                            </span>
                           </div>
+                        </div>
 
-                          {pricing.nextTier && pricing.addressesUntilNextDiscount > 0 && (
-                            <div className="estimate-incentive">
-                              💡 Add {pricing.addressesUntilNextDiscount.toLocaleString()} more addresses to unlock next pricing tier and save ${pricing.potentialSavings.toFixed(2)}
-                            </div>
-                          )}
+                        {pricing.nextTier && pricing.addressesUntilNextDiscount > 0 && (
+                          <div className="estimate-incentive">
+                            💡 Add {pricing.addressesUntilNextDiscount.toLocaleString()} more pieces to unlock {pricing.nextTier} and save ${pricing.potentialSavings.toFixed(2)}
+                          </div>
+                        )}
 
-                          <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                            REQUEST FINAL QUOTE
-                          </button>
+                        <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
+                          REQUEST FINAL QUOTE
+                        </button>
 
-                          <button className="estimate-cta estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
-                            💰 SEE POTENTIAL ROI
-                          </button>
+                        <button className="estimate-cta estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
+                          💰 SEE POTENTIAL ROI
+                        </button>
 
-                          <p className="estimate-fine-print">
-                            *This is an estimate only. Contact us for final pricing and custom options. Based on 6.25x9 postcard, 100# gloss cover, full color both sides.
-                          </p>
-                        </>
-                      )}
+                        <p className="estimate-fine-print">
+                          Estimate includes printing, prep, postage, and USPS drop-off. Final quote may vary slightly based on artwork, size, and timing.
+                        </p>
+                      </>
                     </>
                   ) : (
                     <div className="estimate-empty">
@@ -1418,17 +1356,8 @@ function EDDMMapper() {
           {hasSelection && (
             <div className="mobile-estimate-bar">
               <div className="mobile-estimate-summary">
-                {pricing.belowMinimum ? (
-                  <>
-                    <div className="mobile-estimate-value">Custom Quote</div>
-                    <div className="mobile-estimate-label">Below {pricing.minimumQuantity} min • {pricing.addresses.toLocaleString()} addresses</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="mobile-estimate-value">~${pricing.total.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-                    <div className="mobile-estimate-label">Estimated • {selectedRoutes.length} routes, {pricing.addresses.toLocaleString()} addresses</div>
-                  </>
-                )}
+                <div className="mobile-estimate-value">~${pricing.total.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                <div className="mobile-estimate-label">${pricing.ratePerPiece.toFixed(2)}/pc • {pricing.addresses.toLocaleString()} pieces</div>
               </div>
               <button className="mobile-estimate-btn" onClick={() => setShowQuoteForm(true)}>
                 Get Quote
