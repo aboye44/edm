@@ -1,0 +1,105 @@
+.thank-you-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a365d 0%, #0d1b2a 100%);
+  padding: 20px;
+}
+
+.thank-you-container {
+  background: #fff;
+  border-radius: 12px;
+  padding: 48px 40px;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.thank-you-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  font-size: 40px;
+  color: #fff;
+}
+
+.thank-you-headline {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a365d;
+  margin: 0 0 16px;
+  line-height: 1.3;
+}
+
+.thank-you-subhead {
+  font-size: 18px;
+  color: #4a5568;
+  margin: 0 0 32px;
+  line-height: 1.5;
+}
+
+.thank-you-contact {
+  background: #f7fafc;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 32px;
+}
+
+.thank-you-contact p {
+  font-size: 14px;
+  color: #718096;
+  margin: 0 0 8px;
+}
+
+.thank-you-phone {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a365d;
+  text-decoration: none;
+}
+
+.thank-you-phone:hover {
+  color: #c53030;
+}
+
+.thank-you-button {
+  display: inline-block;
+  background: #c53030;
+  color: #fff;
+  padding: 14px 32px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.thank-you-button:hover {
+  background: #9b2c2c;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 600px) {
+  .thank-you-container {
+    padding: 32px 24px;
+  }
+
+  .thank-you-headline {
+    font-size: 24px;
+  }
+
+  .thank-you-subhead {
+    font-size: 16px;
+  }
+
+  .thank-you-phone {
+    font-size: 20px;
+  }
+}

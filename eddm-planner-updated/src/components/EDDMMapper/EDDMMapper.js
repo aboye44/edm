@@ -869,16 +869,18 @@ function EDDMMapper() {
 
     setSubmitting(false);
 
-    // Success! Show confirmation
+    // On successful webhook submission, redirect to thank you page for PPC conversion tracking
+    if (webhookSuccess) {
+      window.location.href = '/eddm-thank-you';
+      return;
+    }
+
+    // Fallback: If webhook failed but localStorage worked, show alert and stay on page
     const confirmationNote = pricing.belowRecommended
       ? `\n\nNote: For quantities under ${pricing.recommendedMinimum.toLocaleString()} pieces, we recommend adding more routes for better ROI.`
       : '';
 
-    if (webhookSuccess) {
-      alert(`✅ Quote request received!\n\nEstimate: ${pricing.addresses.toLocaleString()} pieces @ $${pricing.ratePerPiece.toFixed(2)}/piece = $${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\nWe'll contact you within 2 business hours with final pricing and a detailed proposal.${confirmationNote}\n\nReference ID: ${leadData.id}`);
-    } else {
-      alert(`✅ Quote request saved!\n\nEstimate: ${pricing.addresses.toLocaleString()} pieces @ $${pricing.ratePerPiece.toFixed(2)}/piece = $${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\nYour information has been recorded. We'll contact you within 2 business hours with final pricing and a detailed proposal.${confirmationNote}\n\nReference ID: ${leadData.id}`);
-    }
+    alert(`✅ Quote request saved!\n\nEstimate: ${pricing.addresses.toLocaleString()} pieces @ $${pricing.ratePerPiece.toFixed(2)}/piece = $${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\nYour information has been recorded. We'll contact you within 2 business hours with final pricing and a detailed proposal.${confirmationNote}\n\nReference ID: ${leadData.id}`);
 
     // Reset form and close modal
     setShowQuoteForm(false);
