@@ -147,20 +147,12 @@ function EDDMMapper() {
 
   // Form state
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
+    businessName: '',
     email: '',
     phone: '',
-    company: '',
-    postcardSize: '6.25" x 9" (Standard)',
-    customSize: '',
-    paperStock: '100# Gloss Cover (Most Common)',
-    customStock: '',
-    printingOptions: 'Full Color Both Sides (most common)',
-    timeline: '',
-    goals: '',
-    designOption: 'need-design', // 'need-design' or 'have-design'
-    designFile: null
+    notes: '',
+    needsDesign: false
   });
 
   // Fetch real USPS EDDM routes via Netlify Function (avoids CORS issues)
@@ -749,7 +741,14 @@ function EDDMMapper() {
     const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
 
     const leadData = {
-      ...formData,
+      // Contact info (new simplified fields)
+      name: formData.name,
+      businessName: formData.businessName || '',
+      email: formData.email,
+      phone: formData.phone,
+      notes: formData.notes || '',
+      needsDesign: formData.needsDesign || false,
+      // Campaign context (keep existing)
       routeIds: selectedRoutes,
       routeNames: selectedRouteData.map(r => `${r.name} (ZIP ${r.zipCode})`).join(', '),
       totalAddresses: pricing.addresses,
@@ -760,9 +759,6 @@ function EDDMMapper() {
       estimatedTotalCost: pricing.total.toFixed(2),
       pricingTier: pricing.currentTier,
       belowRecommended: pricing.belowRecommended || false,
-      designStatus: formData.designOption === 'need-design' ? 'Needs Design Services' : 'Has Print-Ready Files',
-      hasDesignFile: formData.designFile ? true : false,
-      designFileName: formData.designFile ? formData.designFile.name : null,
       timestamp: new Date().toISOString(),
       id: `lead-${Date.now()}`
     };
@@ -773,20 +769,20 @@ function EDDMMapper() {
       message: 'Quote form submitted',
       level: 'info',
       data: {
-        company: formData.company,
+        businessName: formData.businessName || '(none)',
         estimatedPieces: pricing.addresses,
         estimatedRatePerPiece: pricing.ratePerPiece,
         estimatedTotal: pricing.total,
         routesSelected: selectedRoutes.length,
-        belowRecommended: pricing.belowRecommended
+        belowRecommended: pricing.belowRecommended,
+        needsDesign: formData.needsDesign
       }
     });
 
     // Set user context for error tracking
     Sentry.setUser({
       email: formData.email,
-      username: `${formData.firstName} ${formData.lastName}`,
-      company: formData.company
+      username: formData.name
     });
 
     // PRODUCTION WEBHOOK INTEGRATION
@@ -1353,39 +1349,44 @@ function EDDMMapper() {
 
       {showQuoteForm && (
         <div className="modal-overlay" onClick={() => setShowQuoteForm(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content modal-content-compact" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowQuoteForm(false)}>×</button>
-            <h2>Get Your Final Quote</h2>
-            <p>Complete the form below and we'll contact you within 2 business hours with final pricing and a detailed proposal customized for your campaign.</p>
+            <h2>Get Your Free Quote</h2>
+
+            {pricing && (
+              <div className="quote-summary-header">
+                <strong>{selectedRoutes.length}</strong> route(s) · <strong>{pricing.addresses.toLocaleString()}</strong> pieces · <strong>{pricing.currentTier}</strong>
+              </div>
+            )}
 
             <form onSubmit={handleSubmitQuote}>
-              <h3 className="form-section-title">Contact Information</h3>
-
-              <div className="form-row-group">
-                <div className="form-row half">
-                  <input
-                    type="text"
-                    placeholder="First Name *"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-row half">
-                  <input
-                    type="text"
-                    placeholder="Last Name *"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                    required
-                  />
-                </div>
+              <div className="form-row">
+                <label className="form-label">Your name <span className="required">*</span></label>
+                <input
+                  type="text"
+                  placeholder="Jane Smith"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  required
+                />
               </div>
 
               <div className="form-row">
+                <label className="form-label">Business name</label>
+                <input
+                  type="text"
+                  placeholder="Sunrise Heating & Air"
+                  value={formData.businessName}
+                  onChange={(e) => setFormData({...formData, businessName: e.target.value})}
+                />
+                <span className="form-helper">(Optional — leave blank if you don't have one)</span>
+              </div>
+
+              <div className="form-row">
+                <label className="form-label">Email <span className="required">*</span></label>
                 <input
                   type="email"
-                  placeholder="Email Address *"
+                  placeholder="you@company.com"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   required
@@ -1393,203 +1394,38 @@ function EDDMMapper() {
               </div>
 
               <div className="form-row">
+                <label className="form-label">Mobile or best phone <span className="required">*</span></label>
                 <input
                   type="tel"
-                  placeholder="Phone Number * (XXX) XXX-XXXX"
+                  placeholder="(555) 555-5555"
                   value={formData.phone}
                   onChange={handlePhoneChange}
                   maxLength="14"
                   required
                 />
+                <span className="form-helper">We'll only contact you about this campaign.</span>
               </div>
 
               <div className="form-row">
-                <input
-                  type="text"
-                  placeholder="Company Name *"
-                  value={formData.company}
-                  onChange={(e) => setFormData({...formData, company: e.target.value})}
-                  required
-                />
-              </div>
-
-              <h3 className="form-section-title">Project Specifications</h3>
-
-              <div className="form-row">
-                <label className="form-label">Postcard Size *</label>
-                <select
-                  value={formData.postcardSize}
-                  onChange={(e) => setFormData({...formData, postcardSize: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="6.25&quot; x 9&quot; (Standard)">6.25" x 9" (Standard)</option>
-                  <option value="6&quot; x 11&quot;">6" x 11"</option>
-                  <option value="8.5&quot; x 11&quot;">8.5" x 11"</option>
-                  <option value="Custom Size">Custom Size</option>
-                </select>
-                {formData.postcardSize === 'Custom Size' && (
-                  <input
-                    type="text"
-                    placeholder='Enter dimensions (e.g., 5.5" x 8.5")'
-                    value={formData.customSize}
-                    onChange={(e) => setFormData({...formData, customSize: e.target.value})}
-                    className="form-input-sub"
-                    required
-                  />
-                )}
-              </div>
-
-              <div className="form-row">
-                <label className="form-label">Paper Stock *</label>
-                <select
-                  value={formData.paperStock}
-                  onChange={(e) => setFormData({...formData, paperStock: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="100# Gloss Cover (Most Common)">100# Gloss Cover (Most Common)</option>
-                  <option value="14pt Cardstock">14pt Cardstock</option>
-                  <option value="16pt Cardstock">16pt Cardstock</option>
-                  <option value="Custom Stock">Custom Stock</option>
-                </select>
-                {formData.paperStock === 'Custom Stock' && (
-                  <input
-                    type="text"
-                    placeholder="Specify paper stock"
-                    value={formData.customStock}
-                    onChange={(e) => setFormData({...formData, customStock: e.target.value})}
-                    className="form-input-sub"
-                    required
-                  />
-                )}
-              </div>
-
-              <div className="form-row">
-                <label className="form-label">Printing Options *</label>
-                <select
-                  value={formData.printingOptions}
-                  onChange={(e) => setFormData({...formData, printingOptions: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="Full Color Both Sides (most common)">Full Color Both Sides (most common)</option>
-                  <option value="Full Color Front, Black & White Back">Full Color Front, Black & White Back</option>
-                  <option value="Full Color Front, Blank Back">Full Color Front, Blank Back</option>
-                  <option value="Black & White Both Sides">Black & White Both Sides</option>
-                  <option value="Black & White Front, Blank Back">Black & White Front, Blank Back</option>
-                </select>
-              </div>
-
-              <h3 className="form-section-title">Design & Artwork</h3>
-
-              <div className="form-row">
-                <label className="form-label">Do you need design services? *</label>
-                <div className="design-options-radio">
-                  <label className="radio-option">
-                    <input 
-                      type="radio" 
-                      name="designOption"
-                      value="need-design" 
-                      checked={formData.designOption === 'need-design'}
-                      onChange={(e) => setFormData({...formData, designOption: e.target.value, designFile: null})}
-                    />
-                    <span className="radio-label">
-                      <strong>I need design services</strong>
-                      <small>Professional design based on complexity, pricing as low as $50</small>
-                    </span>
-                  </label>
-                  <label className="radio-option">
-                    <input 
-                      type="radio" 
-                      name="designOption"
-                      value="have-design" 
-                      checked={formData.designOption === 'have-design'}
-                      onChange={(e) => setFormData({...formData, designOption: e.target.value})}
-                    />
-                    <span className="radio-label">
-                      <strong>I have print-ready files</strong>
-                      <small>Upload your design below (optional now, can email later)</small>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              
-              {formData.designOption === 'have-design' && (
-                <div className="form-row file-upload-section">
-                  <label className="form-label">Upload Your Design (Optional)</label>
-                  <input 
-                    type="file" 
-                    accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.eps"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      setFormData({...formData, designFile: file});
-                    }}
-                    className="file-input"
-                  />
-                  {formData.designFile && (
-                    <div className="file-selected">
-                      ✓ {formData.designFile.name} ({(formData.designFile.size / 1024 / 1024).toFixed(2)} MB)
-                    </div>
-                  )}
-                  <p className="upload-hint">
-                    Accepted formats: PDF, JPG, PNG, AI, PSD, EPS • Max 25MB<br/>
-                    <em>Can't upload now? No problem - just indicate you have files and email them after submitting.</em>
-                  </p>
-                </div>
-              )}
-
-              <div className="form-row">
-                <label className="form-label">Timeline *</label>
-                <select
-                  value={formData.timeline}
-                  onChange={(e) => setFormData({...formData, timeline: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="">Select timeline</option>
-                  <option value="This month">This month</option>
-                  <option value="1-2 months">1-2 months</option>
-                  <option value="3+ months">3+ months</option>
-                  <option value="Just exploring options">Just exploring options</option>
-                </select>
-              </div>
-
-              <div className="form-row">
-                <label className="form-label">Campaign Goal (Optional)</label>
+                <label className="form-label">Anything we should know?</label>
                 <textarea
-                  placeholder="What are you trying to accomplish? (e.g., Generate leads for financial planning services)"
-                  value={formData.goals}
-                  onChange={(e) => setFormData({...formData, goals: e.target.value})}
+                  placeholder='e.g., "Spring tune-up promo for 3 routes in north Lakeland."'
+                  value={formData.notes}
+                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
                   rows="3"
-                  maxLength="500"
                 ></textarea>
-                <div className="char-count">{formData.goals.length}/500</div>
               </div>
 
-              {pricing && (
-                <div className="quote-summary">
-                  <h4>Your Campaign Selection:</h4>
-                  <p><strong>{selectedRoutes.length}</strong> route(s) selected</p>
-                  <p><strong>{pricing.addresses.toLocaleString()}</strong> {audienceLabel[deliveryType]}</p>
-                  {pricing.belowMinimum ? (
-                    <>
-                      <p className="below-minimum-notice">
-                        ⚠️ Below {pricing.minimumQuantity}-piece minimum - custom pricing required
-                      </p>
-                      <p style={{fontSize: '12px', color: '#666', marginTop: '4px'}}>
-                        We'll provide competitive pricing options and reach out within 24 hours
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>{pricing.currentTier}</p>
-                      <p className="estimate">Estimated Cost: ${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                      <p style={{fontSize: '12px', color: '#999', marginTop: '4px'}}>Final pricing will be provided in your quote</p>
-                    </>
-                  )}
-                </div>
-              )}
+              <div className="form-row checkbox-row">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.needsDesign}
+                    onChange={(e) => setFormData({...formData, needsDesign: e.target.checked})}
+                  />
+                  <span>I need help designing my postcard</span>
+                </label>
+              </div>
 
               {submissionError && (
                 <div className="error-message" style={{marginBottom: '16px'}}>
@@ -1598,8 +1434,12 @@ function EDDMMapper() {
               )}
 
               <button type="submit" className="submit-btn" disabled={submitting}>
-                {submitting ? 'Sending Quote Request...' : 'Submit Quote Request'}
+                {submitting ? 'Sending...' : 'Send me my full quote'}
               </button>
+
+              <p className="form-footer-text">
+                We'll review your routes and email you a detailed turnkey quote (print + prep + postage + USPS drop-off), usually same business day.
+              </p>
             </form>
           </div>
         </div>
