@@ -5,6 +5,7 @@
   "installCommand": "cd eddm-planner-updated && npm install",
   "framework": "create-react-app",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/((?!api/).*)", "destination": "/" }
   ]
 }
