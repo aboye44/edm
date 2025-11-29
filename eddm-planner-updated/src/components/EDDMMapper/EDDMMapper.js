@@ -852,11 +852,13 @@ function EDDMMapper() {
     }
 
     // ALWAYS save to localStorage as backup/fallback
+    let localStorageSuccess = false;
     try {
       const existingLeads = JSON.parse(localStorage.getItem('eddm-leads') || '[]');
       existingLeads.push(leadData);
       localStorage.setItem('eddm-leads', JSON.stringify(existingLeads));
       console.log('💾 Lead saved to localStorage:', leadData.id);
+      localStorageSuccess = true;
     } catch (storageError) {
       console.error('❌ localStorage error:', storageError);
       // If both webhook AND localStorage fail, show error
@@ -869,38 +871,11 @@ function EDDMMapper() {
 
     setSubmitting(false);
 
-    // On successful webhook submission, redirect to thank you page for PPC conversion tracking
-    if (webhookSuccess) {
+    // Redirect to thank you page if either webhook OR localStorage succeeded
+    if (webhookSuccess || localStorageSuccess) {
       window.location.href = '/eddm-thank-you';
       return;
     }
-
-    // Fallback: If webhook failed but localStorage worked, show alert and stay on page
-    const confirmationNote = pricing.belowRecommended
-      ? `\n\nNote: For quantities under ${pricing.recommendedMinimum.toLocaleString()} pieces, we recommend adding more routes for better ROI.`
-      : '';
-
-    alert(`✅ Quote request saved!\n\nEstimate: ${pricing.addresses.toLocaleString()} pieces @ $${pricing.ratePerPiece.toFixed(2)}/piece = $${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\nYour information has been recorded. We'll contact you within 2 business hours with final pricing and a detailed proposal.${confirmationNote}\n\nReference ID: ${leadData.id}`);
-
-    // Reset form and close modal
-    setShowQuoteForm(false);
-    setSubmissionError(null);
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      company: '',
-      postcardSize: '6.25" x 9" (Standard)',
-      customSize: '',
-      paperStock: '100# Gloss Cover (Most Common)',
-      customStock: '',
-      printingOptions: 'Full Color Both Sides (most common)',
-      timeline: '',
-      goals: '',
-      designOption: 'need-design',
-      designFile: null
-    });
   };
 
   const pricing = selectedRoutes.length > 0 ? calculateTotal() : null;
