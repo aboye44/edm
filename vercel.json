@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "buildCommand": "cd eddm-planner-updated && npm install && npm run build",
+  "outputDirectory": "eddm-planner-updated/build",
+  "installCommand": "cd eddm-planner-updated && npm install",
+  "framework": "create-react-app",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
