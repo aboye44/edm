@@ -151,6 +151,8 @@ function EDDMMapper() {
     businessName: '',
     email: '',
     phone: '',
+    preferredSize: 'Not sure yet — please recommend',
+    customSizeDetails: '',
     notes: '',
     needsDesign: false
   });
@@ -741,19 +743,22 @@ function EDDMMapper() {
     const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
 
     const leadData = {
-      // Contact info (new simplified fields)
+      // Contact info
       name: formData.name,
       businessName: formData.businessName || '',
       email: formData.email,
       phone: formData.phone,
+      // Project preferences
+      preferredSize: formData.preferredSize,
+      customSizeDetails: formData.customSizeDetails || '',
       notes: formData.notes || '',
       needsDesign: formData.needsDesign || false,
-      // Campaign context (keep existing)
+      // Campaign context
       routeIds: selectedRoutes,
       routeNames: selectedRouteData.map(r => `${r.name} (ZIP ${r.zipCode})`).join(', '),
       totalAddresses: pricing.addresses,
       deliveryType,
-      // Turnkey pricing (all-inclusive: print + prep + postage + drop-off)
+      // Turnkey pricing (internal - not shown in UI)
       estimatedPieces: pricing.addresses,
       estimatedRatePerPiece: pricing.ratePerPiece,
       estimatedTotalCost: pricing.total.toFixed(2),
@@ -1248,7 +1253,7 @@ function EDDMMapper() {
                         </div>
                       </div>
 
-                      {/* Turnkey Pricing Display */}
+                      {/* Campaign Summary - No pricing shown */}
                       <>
                         {pricing.belowRecommended && (
                           <div className="estimate-below-recommended">
@@ -1262,29 +1267,16 @@ function EDDMMapper() {
 
                         <div className="estimate-total-display">
                           <div className="estimate-breakdown-row">
-                            <span className="estimate-label">Estimated pieces:</span>
+                            <span className="estimate-label">Selected pieces:</span>
                             <span className="estimate-value">{pricing.addresses.toLocaleString()}</span>
                           </div>
-                          <div className="estimate-breakdown-row">
-                            <span className="estimate-label">Turnkey rate:</span>
-                            <span className="estimate-value">${pricing.ratePerPiece.toFixed(2)} per piece</span>
-                          </div>
-                          <div className="estimate-total-row">
-                            <span className="estimate-label">Estimated total:</span>
-                            <span className="estimate-total-amount">
-                              ${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                            </span>
+                          <div className="estimate-info-row">
+                            <p>We'll calculate your all-in turnkey price and include it with your quote.</p>
                           </div>
                         </div>
 
-                        {pricing.nextTier && pricing.addressesUntilNextDiscount > 0 && (
-                          <div className="estimate-incentive">
-                            💡 Add {pricing.addressesUntilNextDiscount.toLocaleString()} more pieces to unlock {pricing.nextTier} and save ${pricing.potentialSavings.toFixed(2)}
-                          </div>
-                        )}
-
                         <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                          REQUEST FINAL QUOTE
+                          GET MY FREE QUOTE
                         </button>
 
                         <button className="estimate-cta estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
@@ -1292,7 +1284,7 @@ function EDDMMapper() {
                         </button>
 
                         <p className="estimate-fine-print">
-                          Estimate includes printing, prep, postage, and USPS drop-off. Final quote may vary slightly based on artwork, size, and timing.
+                          Turnkey pricing includes printing, prep, postage, and USPS drop-off. We'll send you a detailed quote, usually same business day.
                         </p>
                       </>
                     </>
@@ -1311,8 +1303,8 @@ function EDDMMapper() {
           {hasSelection && (
             <div className="mobile-estimate-bar">
               <div className="mobile-estimate-summary">
-                <div className="mobile-estimate-value">~${pricing.total.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-                <div className="mobile-estimate-label">${pricing.ratePerPiece.toFixed(2)}/pc • {pricing.addresses.toLocaleString()} pieces</div>
+                <div className="mobile-estimate-value">{pricing.addresses.toLocaleString()} pieces</div>
+                <div className="mobile-estimate-label">{selectedRoutes.length} routes selected</div>
               </div>
               <button className="mobile-estimate-btn" onClick={() => setShowQuoteForm(true)}>
                 Get Quote
@@ -1355,7 +1347,7 @@ function EDDMMapper() {
 
             {pricing && (
               <div className="quote-summary-header">
-                <strong>{selectedRoutes.length}</strong> route(s) · <strong>{pricing.addresses.toLocaleString()}</strong> pieces · <strong>{pricing.currentTier}</strong>
+                <strong>{selectedRoutes.length}</strong> route(s) · <strong>{pricing.addresses.toLocaleString()}</strong> pieces
               </div>
             )}
 
@@ -1405,6 +1397,32 @@ function EDDMMapper() {
                 />
                 <span className="form-helper">We'll only contact you about this campaign.</span>
               </div>
+
+              <div className="form-row">
+                <label className="form-label">Preferred postcard size (optional)</label>
+                <select
+                  value={formData.preferredSize}
+                  onChange={(e) => setFormData({...formData, preferredSize: e.target.value, customSizeDetails: e.target.value !== 'Custom size / other' ? '' : formData.customSizeDetails})}
+                  className="form-select"
+                >
+                  <option value="Not sure yet — please recommend">Not sure yet — please recommend</option>
+                  <option value="6.25&quot; × 9&quot; (standard EDDM postcard)">6.25" × 9" (standard EDDM postcard)</option>
+                  <option value="8.5&quot; × 11&quot; (large postcard)">8.5" × 11" (large postcard)</option>
+                  <option value="Custom size / other">Custom size / other</option>
+                </select>
+              </div>
+
+              {formData.preferredSize === 'Custom size / other' && (
+                <div className="form-row">
+                  <label className="form-label">Custom size details (optional)</label>
+                  <input
+                    type="text"
+                    placeholder='e.g., 6" × 11" tri-fold brochure'
+                    value={formData.customSizeDetails}
+                    onChange={(e) => setFormData({...formData, customSizeDetails: e.target.value})}
+                  />
+                </div>
+              )}
 
               <div className="form-row">
                 <label className="form-label">Anything we should know?</label>
