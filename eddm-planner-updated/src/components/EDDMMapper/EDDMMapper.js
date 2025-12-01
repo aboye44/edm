@@ -794,62 +794,22 @@ function EDDMMapper() {
     let webhookSuccess = false;
     const webhookUrl = 'https://hooks.zapier.com/hooks/catch/18492625/us7x40y/';
 
-    if (webhookUrl) {
-      try {
-        console.log('📤 Sending lead to webhook...', leadData.id);
+    try {
+      console.log('📤 Sending lead to webhook...', leadData.id);
 
-        // If there's a design file, we'll send leadData without the file
-        // File will be emailed separately (handled by Zapier)
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(leadData),
-          // Timeout after 10 seconds
-          signal: AbortSignal.timeout(10000)
-        });
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        body: JSON.stringify(leadData)
+      });
 
-        if (!response.ok) {
-          throw new Error(`Webhook failed with status ${response.status}`);
-        }
-
-        const responseData = await response.json().catch(() => ({}));
-        console.log('✅ Webhook success:', responseData);
+      if (response.ok) {
+        console.log('✅ Webhook success');
         webhookSuccess = true;
-
-        // If user uploaded a file, trigger email with file attachment
-        if (formData.designFile) {
-          console.log('📧 File uploaded - Zapier will handle email notification');
-          // Note: File handling via email will be configured in Zapier
-          // The webhook already knows there's a file (hasDesignFile: true)
-        }
-
-      } catch (webhookError) {
-        console.error('❌ Webhook error:', webhookError);
-
-        // Track webhook error in Sentry with context
-        Sentry.captureException(webhookError, {
-          tags: {
-            errorType: 'webhook_failure',
-            component: 'quote_submission'
-          },
-          contexts: {
-            lead: {
-              leadId: leadData.id,
-              company: leadData.company,
-              estimatedTotalCost: leadData.estimatedTotalCost,
-              estimatedRatePerPiece: leadData.estimatedRatePerPiece
-            }
-          }
-        });
-
-        // Don't block user - we'll save to localStorage as fallback
-        setSubmissionError('Unable to send quote request to our server. Your information has been saved locally and we\'ll follow up soon.');
+      } else {
+        console.error('❌ Webhook failed with status:', response.status);
       }
-    } else {
-      console.warn('⚠️ No webhook URL configured - using localStorage only');
+    } catch (webhookError) {
+      console.error('❌ Webhook error:', webhookError);
     }
 
     // ALWAYS save to localStorage as backup/fallback
