@@ -792,7 +792,7 @@ function EDDMMapper() {
 
     // PRODUCTION WEBHOOK INTEGRATION
     let webhookSuccess = false;
-    const webhookUrl = process.env.REACT_APP_ZAPIER_WEBHOOK_URL;
+    const webhookUrl = 'https://hooks.zapier.com/hooks/catch/18492625/us7x40y/';
 
     if (webhookUrl) {
       try {
