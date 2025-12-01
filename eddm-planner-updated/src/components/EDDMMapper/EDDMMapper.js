@@ -1312,44 +1312,77 @@ function EDDMMapper() {
             </div>
           )}
 
-          {/* Trust Bar - Navy footer */}
-          <div className="trust-bar">
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">USPS Approved</div>
-                <div className="trust-subtitle">Real carrier route data</div>
+          {/* Bottom Section - Benefits + Footer */}
+          <div className="bottom-section">
+            {/* Benefits Row */}
+            <div className="benefits-row">
+              <div className="benefits-container">
+                <div className="benefit-item">
+                  <div className="benefit-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                      <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                  </div>
+                  <div className="benefit-content">
+                    <div className="benefit-title">USPS Approved</div>
+                    <div className="benefit-subtitle">Official carrier route data</div>
+                  </div>
+                </div>
+                <div className="benefit-item">
+                  <div className="benefit-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                      <circle cx="7" cy="7" r="1.5" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <div className="benefit-content">
+                    <div className="benefit-title">Volume Discounts</div>
+                    <div className="benefit-subtitle">Better rates at scale</div>
+                  </div>
+                </div>
+                <div className="benefit-item">
+                  <div className="benefit-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="1" y="3" width="22" height="18" rx="2"/>
+                      <path d="M1 9h22"/>
+                      <path d="M8 15h4"/>
+                    </svg>
+                  </div>
+                  <div className="benefit-content">
+                    <div className="benefit-title">All-Inclusive Pricing</div>
+                    <div className="benefit-subtitle">Print, prep, postage &amp; delivery</div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">Volume Discounts</div>
-                <div className="trust-subtitle">Best rates guaranteed</div>
-              </div>
-            </div>
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">All-Inclusive</div>
-                <div className="trust-subtitle">Print, postage, delivery</div>
-              </div>
-            </div>
-          </div>
 
-          {/* Footer */}
-          <footer className="site-footer">
-            <div className="footer-contact">
-              <a href="tel:+18633561853" className="footer-phone">(863) 356-1853</a>
-              <span className="footer-divider">·</span>
-              <a href="mailto:orders@mailpro.org" className="footer-email">orders@mailpro.org</a>
-            </div>
-            <div className="footer-bottom">
-              <span className="footer-copyright">© {new Date().getFullYear()} Mail Processing Associates</span>
-              <span className="footer-divider">·</span>
-              <a href="https://www.mailpro.org" className="footer-link" target="_blank" rel="noopener noreferrer">Home</a>
-            </div>
-          </footer>
+            {/* Footer */}
+            <footer className="site-footer">
+              <div className="footer-inner">
+                <div className="footer-contact-row">
+                  <a href="tel:+18633561853" className="footer-phone">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="footer-icon">
+                      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+                    </svg>
+                    (863) 356-1853
+                  </a>
+                  <a href="mailto:orders@mailpro.org" className="footer-email">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="footer-icon">
+                      <rect x="2" y="4" width="20" height="16" rx="2"/>
+                      <path d="M22 6l-10 7L2 6"/>
+                    </svg>
+                    orders@mailpro.org
+                  </a>
+                </div>
+                <div className="footer-meta">
+                  <span className="footer-copyright">© {new Date().getFullYear()} Mail Processing Associates</span>
+                  <span className="footer-sep">|</span>
+                  <a href="https://www.mailpro.org" className="footer-link" target="_blank" rel="noopener noreferrer">mailpro.org</a>
+                </div>
+              </div>
+            </footer>
+          </div>
         </div>
       </div>
 
