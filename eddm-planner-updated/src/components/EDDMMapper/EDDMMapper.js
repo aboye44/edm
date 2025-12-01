@@ -1336,6 +1336,20 @@ function EDDMMapper() {
               </div>
             </div>
           </div>
+
+          {/* Footer */}
+          <footer className="site-footer">
+            <div className="footer-contact">
+              <a href="tel:+18633561853" className="footer-phone">(863) 356-1853</a>
+              <span className="footer-divider">·</span>
+              <a href="mailto:orders@mailpro.org" className="footer-email">orders@mailpro.org</a>
+            </div>
+            <div className="footer-bottom">
+              <span className="footer-copyright">© {new Date().getFullYear()} Mail Processing Associates</span>
+              <span className="footer-divider">·</span>
+              <a href="https://www.mailpro.org" className="footer-link" target="_blank" rel="noopener noreferrer">Home</a>
+            </div>
+          </footer>
         </div>
       </div>
 
