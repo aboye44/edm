@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete, DrawingManager } from '@react-google-maps/api';
 import * as Sentry from '@sentry/react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import ROICalculator from '../ROICalculator/ROICalculator';
 import './EDDMMapper.css';
 
@@ -1459,7 +1459,7 @@ function EDDMMapper() {
         overviewData.push(['Pricing Tier', pricing.currentTier]);
       }
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: currentY,
         head: [],
         body: overviewData,
@@ -1468,8 +1468,7 @@ function EDDMMapper() {
         columnStyles: {
           0: { fontStyle: 'bold', cellWidth: 60 },
           1: { cellWidth: 100 }
-        },
-        didDrawPage: (data) => { currentY = data.cursor.y; }
+        }
       });
 
       currentY = doc.lastAutoTable?.finalY || currentY + 50;
@@ -1481,7 +1480,7 @@ function EDDMMapper() {
         doc.setFont('helvetica', 'bold');
         doc.text('Cost Breakdown', 20, currentY);
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: currentY + 5,
           head: [['Item', 'Rate', 'Amount']],
           body: [
@@ -1513,7 +1512,7 @@ function EDDMMapper() {
         r.business.toLocaleString()
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: currentY + 5,
         head: [['Route', 'ZIP', 'Total', 'Residential', 'Business']],
         body: routeTableData,
