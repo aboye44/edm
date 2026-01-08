@@ -2,5 +2,17 @@
   "buildCommand": "cd eddm-planner-updated && npm install && npm run build",
   "outputDirectory": "eddm-planner-updated/build",
   "installCommand": "cd eddm-planner-updated && npm install",
-  "framework": "create-react-app"
+  "framework": "create-react-app",
+  "functions": {
+    "eddm-planner-updated/api/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/.netlify/functions/eddm-routes",
+      "destination": "/api/eddm-routes"
+    }
+  ]
 }
