@@ -1765,24 +1765,6 @@ function EDDMMapper() {
             </GoogleMap>
           </div>
 
-          {/* Targeted Mail Planner Promotion */}
-          <div className="targeted-promo-banner">
-            <div className="targeted-promo-content">
-              <div className="targeted-promo-text">
-                <span className="targeted-promo-icon">🎯</span>
-                <span>Need more precise targeting? Try our <strong>Targeted Mail Planner</strong></span>
-              </div>
-              <a
-                href="https://www.targeted.mailpro.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="targeted-promo-link"
-              >
-                Learn More →
-              </a>
-            </div>
-          </div>
-
           {/* Two-Column Layout: Routes Grid + Sticky Estimate */}
           {routes.length > 0 && (
             <div className="routes-and-estimate-wrapper">
