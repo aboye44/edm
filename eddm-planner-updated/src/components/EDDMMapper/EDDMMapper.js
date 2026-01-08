@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete, DrawingManager } from '@react-google-maps/api';
 import * as Sentry from '@sentry/react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import ROICalculator from '../ROICalculator/ROICalculator';
 import './EDDMMapper.css';
 
@@ -229,6 +231,27 @@ function EDDMMapper() {
   const [drawnPolygon, setDrawnPolygon] = useState(null);
   const [drawnPolygonPath, setDrawnPolygonPath] = useState(null);
   const mapRef = useRef(null);
+
+  // NEW FEATURE STATES
+  // Feature 1: Email Campaign Summary
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
+  // Feature 2: Multi-ZIP Support
+  const [addedZips, setAddedZips] = useState([]);
+  const [multiZipLoading, setMultiZipLoading] = useState(false);
+
+  // Feature 4: Save & Share Campaign
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const [campaignName, setCampaignName] = useState('');
+
+  // Feature 6: PDF Export
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -1155,6 +1178,358 @@ function EDDMMapper() {
     };
   }, [routes, selectedRoutes, deliveryType]);
 
+  // ============================================
+  // NEW FEATURE HANDLERS
+  // ============================================
+
+  // Feature 2: Multi-ZIP Support - Add ZIP to list
+  const handleAddZip = useCallback(async (e) => {
+    e.preventDefault();
+    if (!zipCode || zipCode.length !== 5) {
+      setError('Please enter a valid 5-digit ZIP code');
+      return;
+    }
+
+    // Check if already added
+    if (addedZips.includes(zipCode)) {
+      setError('This ZIP code is already added');
+      return;
+    }
+
+    setMultiZipLoading(true);
+    setError(null);
+
+    const zipToAdd = zipCode; // Capture current value
+    try {
+      await fetchEDDMRoutes(zipToAdd, { clearOnError: false, setLoadingState: false });
+      setAddedZips(prev => [...prev, zipToAdd]);
+
+      // Center map on the new ZIP's routes
+      setTimeout(() => {
+        setRoutes(currentRoutes => {
+          const newZipRoutes = currentRoutes.filter(r => r.zipCode === zipToAdd);
+          if (newZipRoutes.length > 0) {
+            setMapCenter({ lat: newZipRoutes[0].centerLat, lng: newZipRoutes[0].centerLng });
+          }
+          return currentRoutes;
+        });
+      }, 100);
+
+      setZipCode(''); // Clear input for next ZIP
+      console.log(`Added ZIP ${zipToAdd} to campaign`);
+    } catch (err) {
+      setError(`Failed to load routes for ZIP ${zipToAdd}`);
+    } finally {
+      setMultiZipLoading(false);
+    }
+  }, [zipCode, addedZips, fetchEDDMRoutes, setRoutes, setMapCenter]);
+
+  // Feature 2: Remove ZIP from list
+  const handleRemoveZip = useCallback((zipToRemove) => {
+    setAddedZips(prev => prev.filter(z => z !== zipToRemove));
+    setRoutes(prev => prev.filter(r => r.zipCode !== zipToRemove));
+    setSelectedRoutes(prev => prev.filter(id => {
+      const route = routes.find(r => r.id === id);
+      return route && route.zipCode !== zipToRemove;
+    }));
+    console.log(`Removed ZIP ${zipToRemove} from campaign`);
+  }, [routes]);
+
+  // Feature 1: Email Campaign Summary
+  const handleEmailSummary = useCallback(async (e) => {
+    e.preventDefault();
+    setEmailError('');
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailAddress) {
+      setEmailError('Please enter your email address');
+      return;
+    }
+    if (!emailRegex.test(emailAddress)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+
+    setEmailSending(true);
+    const pricing = calculateTotal();
+    const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
+
+    const emailData = {
+      email: emailAddress,
+      campaignName: campaignName || 'My EDDM Campaign',
+      totalRoutes: selectedRoutes.length,
+      totalAddresses: pricing?.addresses || 0,
+      estimatedCost: pricing?.belowMinimum ? 'Custom quote required' : `$${pricing?.total?.toFixed(2)}`,
+      deliveryType,
+      routes: selectedRouteData.map(r => ({
+        name: r.name,
+        zipCode: r.zipCode,
+        households: r.households,
+        residential: r.residential,
+        business: r.business
+      })),
+      timestamp: new Date().toISOString()
+    };
+
+    // Send to webhook if configured
+    const webhookUrl = process.env.REACT_APP_ZAPIER_WEBHOOK_URL;
+    if (webhookUrl) {
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'email_summary', ...emailData })
+        });
+      } catch (err) {
+        console.error('Webhook error:', err);
+      }
+    }
+
+    // Save to localStorage
+    const emailSummaries = JSON.parse(localStorage.getItem('eddm-email-summaries') || '[]');
+    emailSummaries.push(emailData);
+    localStorage.setItem('eddm-email-summaries', JSON.stringify(emailSummaries));
+
+    setEmailSending(false);
+    setEmailSent(true);
+    setTimeout(() => {
+      setShowEmailModal(false);
+      setEmailSent(false);
+      setEmailAddress('');
+    }, 2000);
+  }, [emailAddress, campaignName, routes, selectedRoutes, deliveryType, calculateTotal]);
+
+  // Feature 4: Generate Share Link (unicode-safe encoding)
+  const generateShareLink = useCallback(() => {
+    const campaignState = {
+      v: 1, // version
+      n: campaignName || 'Campaign',
+      z: addedZips,
+      r: selectedRoutes,
+      d: deliveryType,
+      t: Date.now()
+    };
+
+    // Unicode-safe base64 encoding
+    const jsonStr = JSON.stringify(campaignState);
+    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+    const link = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+
+    // Warn if URL is too long (>2000 chars could cause issues in some browsers)
+    if (link.length > 2000) {
+      console.warn(`Share link is ${link.length} characters. May not work in all browsers.`);
+    }
+
+    setShareLink(link);
+    setShowShareModal(true);
+  }, [campaignName, addedZips, selectedRoutes, deliveryType]);
+
+  // Feature 4: Copy share link to clipboard (with fallback for older browsers)
+  const copyShareLink = useCallback(() => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareLink).then(() => {
+        setShareLinkCopied(true);
+        setTimeout(() => setShareLinkCopied(false), 2000);
+      }).catch(() => {
+        // Fallback if clipboard API fails
+        fallbackCopyToClipboard(shareLink);
+      });
+    } else {
+      fallbackCopyToClipboard(shareLink);
+    }
+
+    function fallbackCopyToClipboard(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setShareLinkCopied(true);
+        setTimeout(() => setShareLinkCopied(false), 2000);
+      } catch (err) {
+        console.error('Fallback copy failed:', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, [shareLink]);
+
+  // Feature 4: Load shared campaign from URL (unicode-safe decoding)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shareParam = params.get('share');
+    if (shareParam) {
+      try {
+        // Unicode-safe base64 decoding
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(shareParam))));
+        if (decoded.v === 1) {
+          setCampaignName(decoded.n || '');
+          setDeliveryType(decoded.d || 'all');
+          // Load the ZIPs
+          if (decoded.z && decoded.z.length > 0) {
+            setAddedZips(decoded.z);
+            decoded.z.forEach(zip => {
+              fetchEDDMRoutes(zip, { clearOnError: false, setLoadingState: false });
+            });
+          }
+          // Set selected routes after a delay to allow routes to load
+          if (decoded.r && decoded.r.length > 0) {
+            setTimeout(() => {
+              setSelectedRoutes(decoded.r);
+            }, 2000);
+          }
+          // Clear URL params without reload
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch (err) {
+        console.error('Failed to load shared campaign:', err);
+      }
+    }
+  }, [fetchEDDMRoutes]);
+
+  // Feature 5: Direct Print Ordering
+  const handleOrderNow = useCallback(() => {
+    const pricing = calculateTotal();
+    const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
+
+    // Build order URL with parameters
+    const orderParams = new URLSearchParams({
+      source: 'eddm-planner',
+      routes: selectedRoutes.length,
+      addresses: pricing?.addresses || 0,
+      total: pricing?.belowMinimum ? 'custom' : pricing?.total?.toFixed(2),
+      zips: [...new Set(selectedRouteData.map(r => r.zipCode))].join(','),
+      type: deliveryType
+    });
+
+    // Open MPA order form with pre-filled data
+    window.open(`https://www.mailpro.org/request-a-quote?${orderParams.toString()}`, '_blank');
+  }, [routes, selectedRoutes, deliveryType, calculateTotal]);
+
+  // Feature 6: Generate PDF Export
+  const generatePDF = useCallback(async () => {
+    setPdfGenerating(true);
+
+    try {
+      const pricing = calculateTotal();
+      const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
+      const doc = new jsPDF();
+
+      // Header
+      doc.setFillColor(15, 22, 41); // Midnight deep
+      doc.rect(0, 0, 220, 45, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('EDDM Campaign Summary', 20, 25);
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(campaignName || 'My EDDM Campaign', 20, 35);
+      doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 140, 35);
+
+      // Campaign Overview
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Campaign Overview', 20, 60);
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+
+      const overviewData = [
+        ['Total Routes Selected', selectedRoutes.length.toString()],
+        ['Total Addresses', (pricing?.addresses || 0).toLocaleString()],
+        ['Delivery Type', deliveryType.charAt(0).toUpperCase() + deliveryType.slice(1)],
+        ['ZIP Codes', [...new Set(selectedRouteData.map(r => r.zipCode))].join(', ') || 'N/A']
+      ];
+
+      if (!pricing?.belowMinimum && pricing) {
+        overviewData.push(['Estimated Total', `$${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2})}`]);
+        overviewData.push(['Pricing Tier', pricing.currentTier]);
+      }
+
+      doc.autoTable({
+        startY: 65,
+        head: [],
+        body: overviewData,
+        theme: 'plain',
+        styles: { fontSize: 11, cellPadding: 4 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 60 },
+          1: { cellWidth: 100 }
+        }
+      });
+
+      // Cost Breakdown (if above minimum)
+      if (!pricing?.belowMinimum && pricing) {
+        const costY = doc.lastAutoTable.finalY + 15;
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Cost Breakdown', 20, costY);
+
+        doc.autoTable({
+          startY: costY + 5,
+          head: [['Item', 'Rate', 'Amount']],
+          body: [
+            ['Printing', `$${pricing.printRate.toFixed(3)}/piece`, `$${pricing.printCost.toFixed(2)}`],
+            ['Postage', '$0.250/piece', `$${pricing.postageCost.toFixed(2)}`],
+            ['Bundling', '$0.035/piece', `$${pricing.bundlingCost.toFixed(2)}`],
+            ['TOTAL', '', `$${pricing.total.toFixed(2)}`]
+          ],
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246] },
+          styles: { fontSize: 10 },
+          footStyles: { fontStyle: 'bold' }
+        });
+      }
+
+      // Route Details
+      const routeY = doc.lastAutoTable.finalY + 15;
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Selected Routes', 20, routeY);
+
+      const routeTableData = selectedRouteData.map(r => [
+        r.name,
+        r.zipCode,
+        r.households.toLocaleString(),
+        r.residential.toLocaleString(),
+        r.business.toLocaleString()
+      ]);
+
+      doc.autoTable({
+        startY: routeY + 5,
+        head: [['Route', 'ZIP', 'Total', 'Residential', 'Business']],
+        body: routeTableData,
+        theme: 'striped',
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 9 }
+      });
+
+      // Footer
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(9);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Generated by MPA EDDM Campaign Planner | www.mailpro.org', 20, pageHeight - 15);
+      doc.text('Prices are estimates. Contact us for final pricing.', 20, pageHeight - 10);
+
+      // Save the PDF (sanitize filename for special characters)
+      const safeCampaignName = (campaignName || 'Summary').replace(/[^a-zA-Z0-9-_]/g, '_').substring(0, 50);
+      doc.save(`EDDM-Campaign-${safeCampaignName}-${new Date().toISOString().split('T')[0]}.pdf`);
+
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      Sentry.captureException(err);
+    } finally {
+      setPdfGenerating(false);
+    }
+  }, [campaignName, routes, selectedRoutes, deliveryType, calculateTotal]);
+
   const handlePhoneChange = (e) => {
     const formatted = formatPhoneNumber(e.target.value);
     setFormData({ ...formData, phone: formatted });
@@ -1400,26 +1775,44 @@ function EDDMMapper() {
           {/* Route Finder Card - Floating white card */}
           <div className="route-finder-container">
             <div className="route-finder-card">
-              {/* ZIP Search Section */}
+              {/* ZIP Search Section - Multi-ZIP Support */}
               <div className="finder-section">
                 <div className="finder-section-icon">📍</div>
                 <div className="finder-section-label">Search by ZIP</div>
-                <form onSubmit={handleZipSearch}>
+                <form onSubmit={handleAddZip}>
                   <input
                     type="text"
                     value={zipCode}
                     onChange={(e) => setZipCode(e.target.value)}
-                    placeholder="33815"
+                    placeholder="Enter ZIP code"
                     className="finder-input"
                     maxLength="5"
                     pattern="[0-9]{5}"
-                    required
-                    disabled={loading}
+                    disabled={loading || multiZipLoading}
                   />
-                  <button type="submit" className="finder-btn-blue" disabled={loading}>
-                    {loading ? 'Searching...' : 'Search'}
-                  </button>
+                  <div className="zip-button-row">
+                    <button type="submit" className="finder-btn-blue" disabled={loading || multiZipLoading || !zipCode}>
+                      {multiZipLoading ? 'Adding...' : '+ Add ZIP'}
+                    </button>
+                    {addedZips.length === 0 && (
+                      <button type="button" className="finder-btn-outline" onClick={handleZipSearch} disabled={loading || !zipCode}>
+                        Search Only
+                      </button>
+                    )}
+                  </div>
                 </form>
+                {/* Multi-ZIP Pills */}
+                {addedZips.length > 0 && (
+                  <div className="multi-zip-pills">
+                    {addedZips.map(zip => (
+                      <div key={zip} className="zip-pill">
+                        <span>{zip}</span>
+                        <button type="button" className="zip-pill-remove" onClick={() => handleRemoveZip(zip)}>×</button>
+                      </div>
+                    ))}
+                    <span className="zip-pill-count">{addedZips.length} ZIP{addedZips.length > 1 ? 's' : ''}</span>
+                  </div>
+                )}
                 {error && (
                   <div className="error-message">{error}</div>
                 )}
@@ -2016,13 +2409,46 @@ function EDDMMapper() {
                             </div>
                           </div>
 
+                          {/* Campaign Name Input */}
+                          <div className="campaign-name-input">
+                            <input
+                              type="text"
+                              value={campaignName}
+                              onChange={(e) => setCampaignName(e.target.value)}
+                              placeholder="Name your campaign (optional)"
+                              className="campaign-name-field"
+                            />
+                          </div>
+
+                          {/* Primary CTA */}
                           <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
                             🚀 REQUEST FREE QUOTE
                           </button>
 
-                          <button className="estimate-cta estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
-                            💰 SEE POTENTIAL ROI
+                          {/* Feature 5: Direct Print Ordering */}
+                          <button className="estimate-cta estimate-cta-order" onClick={handleOrderNow}>
+                            🛒 ORDER NOW
                           </button>
+
+                          {/* Secondary Actions Row */}
+                          <div className="estimate-actions-row">
+                            <button className="estimate-action-btn" onClick={() => setShowROICalculator(true)} title="See ROI">
+                              <span className="action-icon">💰</span>
+                              <span>ROI</span>
+                            </button>
+                            <button className="estimate-action-btn" onClick={() => setShowEmailModal(true)} title="Email Summary">
+                              <span className="action-icon">📧</span>
+                              <span>Email</span>
+                            </button>
+                            <button className="estimate-action-btn" onClick={generateShareLink} title="Share Campaign">
+                              <span className="action-icon">🔗</span>
+                              <span>Share</span>
+                            </button>
+                            <button className="estimate-action-btn" onClick={generatePDF} disabled={pdfGenerating} title="Download PDF">
+                              <span className="action-icon">{pdfGenerating ? '⏳' : '📄'}</span>
+                              <span>{pdfGenerating ? '...' : 'PDF'}</span>
+                            </button>
+                          </div>
 
                           <p className="estimate-fine-print">
                             *This is an estimate only. Contact us for final pricing and custom options. Based on 6.25x9 postcard, 100# gloss cover, full color both sides.
@@ -2557,6 +2983,113 @@ function EDDMMapper() {
                 onClick={() => setComparisonRoutes([])}
               >
                 Clear Comparison
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feature 1: Email Campaign Summary Modal */}
+      {showEmailModal && (
+        <div className="modal-overlay" onClick={() => setShowEmailModal(false)}>
+          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowEmailModal(false)}>×</button>
+
+            <div className="email-modal-header">
+              <span className="email-modal-icon">📧</span>
+              <h2>Save Campaign Summary</h2>
+              <p>We'll save your campaign and send you a follow-up with detailed information.</p>
+            </div>
+
+            {emailSent ? (
+              <div className="email-success">
+                <span className="success-icon">✅</span>
+                <h3>Saved!</h3>
+                <p>Your campaign has been saved. We'll be in touch shortly!</p>
+              </div>
+            ) : (
+              <form onSubmit={handleEmailSummary} className="email-form">
+                <div className="form-row">
+                  <input
+                    type="email"
+                    value={emailAddress}
+                    onChange={(e) => {
+                      setEmailAddress(e.target.value);
+                      setEmailError(''); // Clear error on change
+                    }}
+                    placeholder="Enter your email address"
+                    className={`email-input ${emailError ? 'email-input-error' : ''}`}
+                  />
+                  {emailError && (
+                    <div className="email-error-message">{emailError}</div>
+                  )}
+                </div>
+                <div className="email-summary-preview">
+                  <div className="preview-item">
+                    <span className="preview-label">Routes</span>
+                    <span className="preview-value">{selectedRoutes.length}</span>
+                  </div>
+                  <div className="preview-item">
+                    <span className="preview-label">Addresses</span>
+                    <span className="preview-value">{pricing?.addresses?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="preview-item">
+                    <span className="preview-label">Estimated</span>
+                    <span className="preview-value">{pricing?.belowMinimum ? 'Custom' : `$${pricing?.total?.toFixed(0)}`}</span>
+                  </div>
+                </div>
+                <button type="submit" className="email-submit-btn" disabled={emailSending}>
+                  {emailSending ? 'Sending...' : '📤 Send Summary'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Feature 4: Share Campaign Modal */}
+      {showShareModal && (
+        <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
+          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowShareModal(false)}>×</button>
+
+            <div className="share-modal-header">
+              <span className="share-modal-icon">🔗</span>
+              <h2>Share Your Campaign</h2>
+              <p>Share this link with your team or clients to show them the campaign.</p>
+            </div>
+
+            <div className="share-link-container">
+              <input
+                type="text"
+                value={shareLink}
+                readOnly
+                className="share-link-input"
+                onClick={(e) => e.target.select()}
+              />
+              <button className="copy-link-btn" onClick={copyShareLink}>
+                {shareLinkCopied ? '✅ Copied!' : '📋 Copy'}
+              </button>
+            </div>
+
+            <div className="share-info">
+              <p><strong>Campaign:</strong> {campaignName || 'Untitled Campaign'}</p>
+              <p><strong>Routes:</strong> {selectedRoutes.length} selected</p>
+              <p><strong>ZIP codes:</strong> {addedZips.length > 0 ? addedZips.join(', ') : 'N/A'}</p>
+            </div>
+
+            <div className="share-social-buttons">
+              <button
+                className="share-social-btn email"
+                onClick={() => window.location.href = `mailto:?subject=EDDM Campaign: ${campaignName || 'My Campaign'}&body=Check out my EDDM campaign: ${shareLink}`}
+              >
+                📧 Email
+              </button>
+              <button
+                className="share-social-btn"
+                onClick={() => window.open(`https://wa.me/?text=Check out my EDDM campaign: ${encodeURIComponent(shareLink)}`, '_blank')}
+              >
+                💬 WhatsApp
               </button>
             </div>
           </div>
