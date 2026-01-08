@@ -2081,80 +2081,23 @@ function EDDMMapper() {
             </div>
           )}
 
-          {/* Testimonials Section - Social Proof */}
-          <section className="testimonials-section">
-            <div className="testimonials-header">
-              <h2>Trusted by Local Businesses</h2>
-              <p>See why businesses across Florida choose MPA for their direct mail campaigns</p>
-            </div>
-            <div className="testimonials-grid">
-              <div className="testimonial-card">
-                <div className="testimonial-stars">★★★★★</div>
-                <p className="testimonial-text">
-                  "Our EDDM campaign brought in 47 new customers in just 2 weeks. The ROI was incredible - we spent $800 and made over $12,000 in new business."
-                </p>
-                <div className="testimonial-author">
-                  <div className="author-avatar">JR</div>
-                  <div className="author-info">
-                    <div className="author-name">James Rodriguez</div>
-                    <div className="author-business">Rodriguez HVAC, Lakeland</div>
-                  </div>
-                </div>
+          {/* Simple Footer */}
+          <footer className="simple-footer">
+            <div className="footer-content">
+              <div className="footer-brand">
+                <span className="footer-logo">MPA</span>
+                <span className="footer-tagline">Mail Processing Associates</span>
               </div>
-              <div className="testimonial-card featured">
-                <div className="testimonial-badge">Most Recent</div>
-                <div className="testimonial-stars">★★★★★</div>
-                <p className="testimonial-text">
-                  "This tool made planning our campaign so easy. We selected 15,000 homes around our location and had postcards in mailboxes within 10 days. Highly recommend!"
-                </p>
-                <div className="testimonial-author">
-                  <div className="author-avatar">SM</div>
-                  <div className="author-info">
-                    <div className="author-name">Sarah Mitchell</div>
-                    <div className="author-business">Mitchell's Dental, Winter Haven</div>
-                  </div>
-                </div>
+              <div className="footer-links">
+                <a href="https://www.mailpro.org" target="_blank" rel="noopener noreferrer">Main Site</a>
+                <a href="https://www.mailpro.org/request-a-quote" target="_blank" rel="noopener noreferrer">Request Quote</a>
+                <a href="https://www.mailpro.org/contact" target="_blank" rel="noopener noreferrer">Contact Us</a>
               </div>
-              <div className="testimonial-card">
-                <div className="testimonial-stars">★★★★★</div>
-                <p className="testimonial-text">
-                  "We've done 3 campaigns with MPA now. Each one has been flawless. The pricing is transparent and the quality is top-notch."
-                </p>
-                <div className="testimonial-author">
-                  <div className="author-avatar">MK</div>
-                  <div className="author-info">
-                    <div className="author-name">Mike Kim</div>
-                    <div className="author-business">Kim's Auto Repair, Bartow</div>
-                  </div>
-                </div>
+              <div className="footer-copyright">
+                © {new Date().getFullYear()} Mail Processing Associates. All rights reserved.
               </div>
             </div>
-          </section>
-
-          {/* Trust Bar - Navy footer */}
-          <div className="trust-bar">
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">USPS Approved</div>
-                <div className="trust-subtitle">Real carrier route data</div>
-              </div>
-            </div>
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">Volume Discounts</div>
-                <div className="trust-subtitle">Best rates guaranteed</div>
-              </div>
-            </div>
-            <div className="trust-item">
-              <div className="trust-icon">✓</div>
-              <div className="trust-text">
-                <div className="trust-title">All-Inclusive</div>
-                <div className="trust-subtitle">Print, postage, delivery</div>
-              </div>
-            </div>
-          </div>
+          </footer>
         </div>
       </div>
 
