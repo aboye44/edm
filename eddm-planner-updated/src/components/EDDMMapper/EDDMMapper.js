@@ -1356,8 +1356,8 @@ function EDDMMapper() {
           </div>
 
           <button className="mpa-header-contact" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
-            <span className="contact-icon">💬</span>
-            Get Started
+            <span className="contact-icon">🎯</span>
+            Need a Targeted Campaign?
           </button>
         </header>
 
