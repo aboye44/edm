@@ -1411,12 +1411,18 @@ function EDDMMapper() {
 
   // Feature 6: Generate PDF Export
   const generatePDF = useCallback(async () => {
+    if (selectedRoutes.length === 0) {
+      alert('Please select at least one route before generating a PDF.');
+      return;
+    }
+
     setPdfGenerating(true);
 
     try {
       const pricing = calculateTotal();
       const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
       const doc = new jsPDF();
+      let currentY = 65; // Track Y position manually
 
       // Header
       doc.setFillColor(15, 22, 41); // Midnight deep
@@ -1454,7 +1460,7 @@ function EDDMMapper() {
       }
 
       doc.autoTable({
-        startY: 65,
+        startY: currentY,
         head: [],
         body: overviewData,
         theme: 'plain',
@@ -1462,18 +1468,21 @@ function EDDMMapper() {
         columnStyles: {
           0: { fontStyle: 'bold', cellWidth: 60 },
           1: { cellWidth: 100 }
-        }
+        },
+        didDrawPage: (data) => { currentY = data.cursor.y; }
       });
+
+      currentY = doc.lastAutoTable?.finalY || currentY + 50;
 
       // Cost Breakdown (if above minimum)
       if (!pricing?.belowMinimum && pricing) {
-        const costY = doc.lastAutoTable.finalY + 15;
+        currentY += 15;
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text('Cost Breakdown', 20, costY);
+        doc.text('Cost Breakdown', 20, currentY);
 
         doc.autoTable({
-          startY: costY + 5,
+          startY: currentY + 5,
           head: [['Item', 'Rate', 'Amount']],
           body: [
             ['Printing', `$${pricing.printRate.toFixed(3)}/piece`, `$${pricing.printCost.toFixed(2)}`],
@@ -1486,13 +1495,15 @@ function EDDMMapper() {
           styles: { fontSize: 10 },
           footStyles: { fontStyle: 'bold' }
         });
+
+        currentY = doc.lastAutoTable?.finalY || currentY + 60;
       }
 
       // Route Details
-      const routeY = doc.lastAutoTable.finalY + 15;
+      currentY += 15;
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('Selected Routes', 20, routeY);
+      doc.text('Selected Routes', 20, currentY);
 
       const routeTableData = selectedRouteData.map(r => [
         r.name,
@@ -1503,7 +1514,7 @@ function EDDMMapper() {
       ]);
 
       doc.autoTable({
-        startY: routeY + 5,
+        startY: currentY + 5,
         head: [['Route', 'ZIP', 'Total', 'Residential', 'Business']],
         body: routeTableData,
         theme: 'striped',
@@ -1524,6 +1535,7 @@ function EDDMMapper() {
 
     } catch (err) {
       console.error('PDF generation error:', err);
+      alert('Failed to generate PDF. Please try again.');
       Sentry.captureException(err);
     } finally {
       setPdfGenerating(false);
