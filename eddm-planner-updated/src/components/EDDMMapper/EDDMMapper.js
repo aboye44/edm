@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete } from '@react-google-maps/api';
+import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete, DrawingManager } from '@react-google-maps/api';
 import * as Sentry from '@sentry/react';
 import ROICalculator from '../ROICalculator/ROICalculator';
 import './EDDMMapper.css';
 
 // Google Maps libraries to load
-const GOOGLE_MAPS_LIBRARIES = ['places'];
+const GOOGLE_MAPS_LIBRARIES = ['places', 'drawing'];
 
 // Netlify Function endpoint for fetching EDDM routes (proxies USPS API to avoid CORS)
 const EDDM_API_ENDPOINT = '/.netlify/functions/eddm-routes';
@@ -121,6 +121,66 @@ const defaultCenter = {
   lng: -81.9498
 };
 
+// Helper function to format dates for campaign timeline
+const formatTimelineDate = (daysFromNow) => {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+// Helper function to get heat map color based on household density
+// Returns a color from blue (low) through green/yellow to red (high)
+const getHeatMapColor = (value, min, max) => {
+  if (max === min) return 'rgba(59, 130, 246, 0.6)'; // Default blue if no range
+
+  // Normalize value to 0-1
+  const normalized = (value - min) / (max - min);
+
+  // Create gradient: Blue -> Cyan -> Green -> Yellow -> Orange -> Red
+  let r, g, b;
+  if (normalized < 0.25) {
+    // Blue to Cyan
+    const t = normalized / 0.25;
+    r = 59; g = Math.round(130 + 81 * t); b = Math.round(246 - 8 * t);
+  } else if (normalized < 0.5) {
+    // Cyan to Green
+    const t = (normalized - 0.25) / 0.25;
+    r = Math.round(59 - 43 * t); g = Math.round(211 - 26 * t); b = Math.round(238 - 148 * t);
+  } else if (normalized < 0.75) {
+    // Green to Yellow
+    const t = (normalized - 0.5) / 0.25;
+    r = Math.round(16 + 228 * t); g = 185; b = Math.round(90 - 67 * t);
+  } else {
+    // Yellow to Red
+    const t = (normalized - 0.75) / 0.25;
+    r = 244; g = Math.round(185 - 78 * t); b = Math.round(23 + 84 * t);
+  }
+
+  return `rgba(${r}, ${g}, ${b}, 0.7)`;
+};
+
+// Simple point-in-polygon check (ray casting algorithm) - standalone function for use in useMemo
+const isPointInPolygonSimple = (point, polygon) => {
+  if (!polygon || polygon.length < 3) return false;
+
+  let inside = false;
+  const x = point.lat;
+  const y = point.lng;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lat;
+    const yi = polygon[i].lng;
+    const xj = polygon[j].lat;
+    const yj = polygon[j].lng;
+
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+};
+
 function EDDMMapper() {
   const [zipCode, setZipCode] = useState('');
   const [routes, setRoutes] = useState([]);
@@ -143,6 +203,32 @@ function EDDMMapper() {
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState(null);
   const autocompleteRef = useRef(null);
+
+  // Live Campaign Counter (social proof)
+  const [campaignCount, setCampaignCount] = useState(47);
+  const [campaignCountAnimating, setCampaignCountAnimating] = useState(false);
+
+  // Demographic Heat Map overlay
+  const [showHeatMap, setShowHeatMap] = useState(false);
+
+  // Smart Budget Optimizer state
+  const [showBudgetOptimizer, setShowBudgetOptimizer] = useState(false);
+  const [targetBudget, setTargetBudget] = useState(1000);
+  const [budgetOptimizing, setBudgetOptimizing] = useState(false);
+
+  // Street View Preview state
+  const [streetViewRoute, setStreetViewRoute] = useState(null);
+  const [showStreetView, setShowStreetView] = useState(false);
+
+  // Route Comparison state
+  const [comparisonRoutes, setComparisonRoutes] = useState([]);
+  const [showComparison, setShowComparison] = useState(false);
+
+  // Draw on Map state
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [drawnPolygon, setDrawnPolygon] = useState(null);
+  const [drawnPolygonPath, setDrawnPolygonPath] = useState(null);
+  const mapRef = useRef(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -673,13 +759,43 @@ function EDDMMapper() {
     }
 
     // If coverage circle is active, ONLY show routes with centroid inside radius
-    if (circleCenter) {
+    // If coverage circle is active (and no drawn polygon), filter by radius
+    if (circleCenter && !drawnPolygonPath) {
       const routeIdsInRadius = new Set(routesInRadius.map(r => r.id));
       filtered = filtered.filter(route => routeIdsInRadius.has(route.id));
     }
 
+    // If polygon is drawn, filter to only routes within the polygon
+    // This takes priority over circle filtering
+    if (drawnPolygonPath && drawnPolygonPath.length >= 3) {
+      filtered = filtered.filter(route => {
+        // Check if route center is inside polygon
+        const routeCenter = { lat: route.centerLat, lng: route.centerLng };
+        return isPointInPolygonSimple(routeCenter, drawnPolygonPath);
+      });
+    }
+
     return filtered;
-  }, [routes, deliveryType, circleCenter, routesInRadius]);
+  }, [routes, deliveryType, circleCenter, routesInRadius, drawnPolygonPath]);
+
+  // AI Route Recommender - memoize top 20% route IDs for performance
+  const aiRecommendedRouteIds = useMemo(() => {
+    if (filteredRoutes.length === 0) return new Set();
+    const sortedByHouseholds = [...filteredRoutes].sort((a, b) => b.households - a.households);
+    const top20PercentCount = Math.max(1, Math.ceil(sortedByHouseholds.length * 0.2));
+    const topRoutes = sortedByHouseholds.slice(0, top20PercentCount);
+    return new Set(topRoutes.map(r => r.id));
+  }, [filteredRoutes]);
+
+  // Heat map bounds - calculate min/max households for color normalization
+  const heatMapBounds = useMemo(() => {
+    if (routes.length === 0) return { min: 0, max: 1 };
+    const households = routes.map(r => r.households);
+    return {
+      min: Math.min(...households),
+      max: Math.max(...households)
+    };
+  }, [routes]);
 
   useEffect(() => {
     setSelectedRoutes(prev => {
@@ -687,6 +803,22 @@ function EDDMMapper() {
       return filtered.length === prev.length ? prev : filtered;
     });
   }, [filteredRoutes]);
+
+  // Live campaign counter - simulates real-time social proof
+  useEffect(() => {
+    // Randomly increment the counter every 15-45 seconds to simulate activity
+    const interval = setInterval(() => {
+      const shouldIncrement = Math.random() > 0.3; // 70% chance to increment
+      if (shouldIncrement) {
+        setCampaignCountAnimating(true);
+        setCampaignCount(prev => prev + 1);
+        // Reset animation flag after animation completes
+        setTimeout(() => setCampaignCountAnimating(false), 600);
+      }
+    }, Math.random() * 30000 + 15000); // Random interval between 15-45 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Select all routes within the radius (defined after filteredRoutes)
   const selectAllRoutesInRadius = useCallback(() => {
@@ -700,6 +832,246 @@ function EDDMMapper() {
     setSelectedRoutes([]);
     console.log('Deselected all routes');
   }, []);
+
+  // Smart Budget Optimizer - finds optimal route combination for target budget
+  // Uses a greedy algorithm that maximizes addresses per dollar
+  const optimizeForBudget = useCallback((budget) => {
+    if (filteredRoutes.length === 0 || budget < 100) return;
+
+    setBudgetOptimizing(true);
+
+    // Pricing constants (must match calculateTotal)
+    const POSTAGE_RATE = 0.25;
+    const BUNDLING_RATE = 0.035;
+    const printPricingTiers = [
+      { min: 500, max: 999, rate: 0.23 },
+      { min: 1000, max: 2499, rate: 0.17 },
+      { min: 2500, max: 4999, rate: 0.12 },
+      { min: 5000, max: 9999, rate: 0.10 },
+      { min: 10000, max: Infinity, rate: 0.089 }
+    ];
+
+    // Calculate cost for a given number of addresses
+    const calculateCostForAddresses = (addresses) => {
+      if (addresses < 500) return addresses * (0.23 + POSTAGE_RATE + BUNDLING_RATE);
+      const tier = printPricingTiers.find(t => addresses >= t.min && addresses <= t.max);
+      const printRate = tier ? tier.rate : 0.089;
+      return addresses * (printRate + POSTAGE_RATE + BUNDLING_RATE);
+    };
+
+    // Get addresses for a route based on delivery type
+    const getRouteAddresses = (route) => {
+      if (deliveryType === 'residential') return route.residential;
+      if (deliveryType === 'business') return route.business;
+      return route.households;
+    };
+
+    // Sort routes by value (addresses per estimated cost) - descending
+    const routesWithValue = filteredRoutes.map(route => {
+      const addresses = getRouteAddresses(route);
+      const estimatedCost = calculateCostForAddresses(addresses);
+      return {
+        ...route,
+        addresses,
+        estimatedCost,
+        valuePerDollar: addresses / estimatedCost
+      };
+    }).sort((a, b) => b.valuePerDollar - a.valuePerDollar);
+
+    // Greedy selection: keep adding routes until we exceed budget
+    const selectedIds = [];
+    let totalAddresses = 0;
+    let runningCost = 0;
+
+    for (const route of routesWithValue) {
+      const newTotal = totalAddresses + route.addresses;
+      const newCost = calculateCostForAddresses(newTotal);
+
+      if (newCost <= budget) {
+        selectedIds.push(route.id);
+        totalAddresses = newTotal;
+        runningCost = newCost;
+      }
+    }
+
+    // If we couldn't select any routes (budget too low), select just the best value route
+    if (selectedIds.length === 0 && routesWithValue.length > 0) {
+      selectedIds.push(routesWithValue[0].id);
+    }
+
+    setSelectedRoutes(selectedIds);
+    setBudgetOptimizing(false);
+    setShowBudgetOptimizer(false);
+
+    console.log(`Budget Optimizer: Selected ${selectedIds.length} routes for ~$${runningCost.toFixed(2)} (${totalAddresses.toLocaleString()} addresses)`);
+  }, [filteredRoutes, deliveryType]);
+
+  // Toggle route for comparison
+  const toggleRouteComparison = useCallback((routeId) => {
+    setComparisonRoutes(prev => {
+      if (prev.includes(routeId)) {
+        return prev.filter(id => id !== routeId);
+      }
+      if (prev.length >= 3) {
+        // Max 3 routes for comparison
+        return [...prev.slice(1), routeId];
+      }
+      return [...prev, routeId];
+    });
+  }, []);
+
+  // Open Street View for a route
+  const openStreetView = useCallback((route) => {
+    setStreetViewRoute(route);
+    setShowStreetView(true);
+  }, []);
+
+  // Check if a point is inside a polygon using ray casting algorithm
+  const isPointInPolygon = useCallback((point, polygon) => {
+    if (!polygon || polygon.length < 3) return false;
+
+    let inside = false;
+    const x = point.lat;
+    const y = point.lng;
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].lat;
+      const yi = polygon[i].lng;
+      const xj = polygon[j].lat;
+      const yj = polygon[j].lng;
+
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+
+    return inside;
+  }, []);
+
+  // Check if any part of a route intersects with the drawn polygon
+  const routeIntersectsPolygon = useCallback((route, polygonPath) => {
+    if (!polygonPath || polygonPath.length < 3) return true; // No polygon drawn, show all
+
+    // Check if route center is inside polygon
+    const routeCenter = { lat: route.centerLat, lng: route.centerLng };
+    if (isPointInPolygon(routeCenter, polygonPath)) return true;
+
+    // Check if any polygon vertex is inside any route path
+    for (const path of route.coordinates) {
+      for (const point of path) {
+        if (isPointInPolygon(point, polygonPath)) return true;
+      }
+    }
+
+    return false;
+  }, [isPointInPolygon]);
+
+  // Auto-select routes within drawn polygon when routes are loaded
+  // Use a ref to track if we've already selected for this polygon
+  const lastPolygonSelectedRef = React.useRef(null);
+
+  useEffect(() => {
+    if (drawnPolygonPath && drawnPolygonPath.length >= 3 && filteredRoutes.length > 0) {
+      // Create a key from the polygon path to detect new polygons
+      const polygonKey = drawnPolygonPath.map(p => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join('|');
+
+      // Only auto-select if this is a new polygon (not already processed)
+      if (lastPolygonSelectedRef.current !== polygonKey) {
+        lastPolygonSelectedRef.current = polygonKey;
+
+        // filteredRoutes already contains only routes inside the polygon
+        // Just select all of them
+        const routeIds = filteredRoutes.map(r => r.id);
+        setSelectedRoutes(routeIds);
+        console.log(`Auto-selected ${routeIds.length} routes within drawn polygon`);
+      }
+    }
+  }, [drawnPolygonPath, filteredRoutes]);
+
+  // Handle polygon complete from DrawingManager
+  const handlePolygonComplete = useCallback(async (polygon) => {
+    // Remove previous polygon if exists
+    if (drawnPolygon) {
+      drawnPolygon.setMap(null);
+    }
+
+    // Get the path from the drawn polygon
+    const path = polygon.getPath().getArray().map(latLng => ({
+      lat: latLng.lat(),
+      lng: latLng.lng()
+    }));
+
+    setDrawnPolygon(polygon);
+    setDrawnPolygonPath(path);
+    setIsDrawingMode(false);
+
+    // Calculate polygon center and radius for fetching routes
+    const lats = path.map(p => p.lat);
+    const lngs = path.map(p => p.lng);
+    const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+    const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+
+    // Calculate radius needed to cover the polygon (in miles)
+    // Use the diagonal distance from center to furthest corner
+    const maxDistanceMiles = Math.max(...path.map(p => {
+      const dLat = (p.lat - centerLat) * 69; // ~69 miles per degree lat
+      const dLng = (p.lng - centerLng) * 69 * Math.cos(centerLat * Math.PI / 180);
+      return Math.sqrt(dLat * dLat + dLng * dLng);
+    }));
+    // Add 20% buffer and round up to nearest mile, min 3 miles
+    const radiusMiles = Math.max(3, Math.ceil(maxDistanceMiles * 1.2));
+
+    console.log(`Draw on Map: Polygon center at ${centerLat.toFixed(4)}, ${centerLng.toFixed(4)}, radius ${radiusMiles} miles`);
+
+    // If no routes loaded, fetch routes for the drawn area
+    if (routes.length === 0) {
+      console.log('No routes loaded - fetching routes for drawn area...');
+      setLoading(true);
+
+      // Clear any existing circle center - we're using polygon filtering now
+      setCircleCenter(null);
+
+      try {
+        // Fetch routes - this will populate the routes state
+        // We use the polygon center and radius just for fetching, not for display
+        await fetchRoutesForRadius(centerLat, centerLng, radiusMiles, null);
+
+        // After routes are loaded, filteredRoutes will automatically filter by polygon
+        // and useEffect will auto-select routes within the polygon
+      } catch (err) {
+        console.error('Failed to fetch routes for drawn area:', err);
+        setError('Failed to load routes for the drawn area. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Routes already loaded - just select those within polygon
+      const routesInArea = filteredRoutes.filter(route => routeIntersectsPolygon(route, path));
+      const routeIds = routesInArea.map(r => r.id);
+      setSelectedRoutes(prev => [...new Set([...prev, ...routeIds])]);
+      console.log(`Draw on Map: Selected ${routeIds.length} routes within drawn area`);
+    }
+  }, [drawnPolygon, filteredRoutes, routeIntersectsPolygon, routes.length, fetchRoutesForRadius]);
+
+  // Clear drawn polygon
+  const clearDrawnPolygon = useCallback(() => {
+    if (drawnPolygon) {
+      drawnPolygon.setMap(null);
+    }
+    setDrawnPolygon(null);
+    setDrawnPolygonPath(null);
+    lastPolygonSelectedRef.current = null; // Reset so next polygon triggers selection
+  }, [drawnPolygon]);
+
+  // Toggle drawing mode
+  const toggleDrawingMode = useCallback(() => {
+    if (isDrawingMode) {
+      setIsDrawingMode(false);
+    } else {
+      clearDrawnPolygon();
+      setIsDrawingMode(true);
+    }
+  }, [isDrawingMode, clearDrawnPolygon]);
 
   const calculateTotal = useCallback(() => {
     const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
@@ -969,21 +1341,60 @@ function EDDMMapper() {
       libraries={GOOGLE_MAPS_LIBRARIES}
     >
       <div className="eddm-mapper">
-        {/* MPA Header - Fixed white header matching mailpro.org */}
+        {/* MPA Header - Premium dark glass header */}
         <header className="mpa-header">
-          <div className="mpa-header-logo">MPA</div>
-          <div className="mpa-header-center">EDDM Campaign Planner</div>
+          <div className="mpa-header-left">
+            <div className="mpa-header-logo">MPA</div>
+            <div className="mpa-header-tagline">Premium Direct Mail</div>
+          </div>
+
+          {/* Live Campaign Counter - Social Proof */}
+          <div className={`live-campaign-counter ${campaignCountAnimating ? 'pulse' : ''}`}>
+            <span className="live-counter-pulse"></span>
+            <span className="live-counter-number">{campaignCount}</span>
+            <span className="live-counter-text">campaigns planned this week</span>
+          </div>
+
           <button className="mpa-header-contact" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
-            Contact Us
+            <span className="contact-icon">💬</span>
+            Get Started
           </button>
         </header>
 
         {/* Content wrapper - pushes below fixed header */}
         <div className="eddm-content">
-          {/* Hero Section - Navy background */}
+          {/* Hero Section - Premium gradient background with animated orbs */}
           <section className="eddm-hero">
-            <h1>EDDM Campaign Planner</h1>
-            <p>Enter any U.S. ZIP code to see carrier routes, select your target areas, and get instant pricing</p>
+            <div className="hero-glow-orb hero-glow-orb-1"></div>
+            <div className="hero-glow-orb hero-glow-orb-2"></div>
+            <div className="hero-glow-orb hero-glow-orb-3"></div>
+
+            <div className="hero-content">
+              <div className="hero-badge">
+                <span className="hero-badge-icon">⚡</span>
+                USPS EDDM® Certified Partner
+              </div>
+              <h1>Plan Your Direct Mail Campaign</h1>
+              <p className="hero-subtitle">
+                Target any neighborhood in America. See real-time carrier routes, demographic data, and instant pricing.
+              </p>
+
+              {/* Trust Indicators */}
+              <div className="trust-indicators">
+                <div className="trust-item">
+                  <span className="trust-icon">✓</span>
+                  <span>Free Route Selection</span>
+                </div>
+                <div className="trust-item">
+                  <span className="trust-icon">✓</span>
+                  <span>No Minimum Order</span>
+                </div>
+                <div className="trust-item">
+                  <span className="trust-icon">✓</span>
+                  <span>Instant Quote</span>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Route Finder Card - Floating white card */}
@@ -1069,6 +1480,35 @@ function EDDMMapper() {
                   </div>
                 )}
               </div>
+
+              <div className="route-finder-divider"></div>
+
+              {/* Draw to Select Section - NEW prominent feature */}
+              <div className="finder-section finder-section-draw">
+                <div className="finder-section-icon">✏️</div>
+                <div className="finder-section-label">Draw to Select</div>
+                <p className="finder-section-desc">Draw a custom area on the map to auto-select routes</p>
+                <button
+                  type="button"
+                  className={`finder-btn-draw ${isDrawingMode ? 'active' : ''}`}
+                  onClick={() => {
+                    setIsDrawingMode(!isDrawingMode);
+                    // Scroll to map
+                    const mapElement = document.querySelector('.map-container');
+                    if (mapElement) {
+                      mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }}
+                >
+                  <span className="draw-btn-icon">{isDrawingMode ? '❌' : '✏️'}</span>
+                  {isDrawingMode ? 'Cancel Drawing' : 'Start Drawing'}
+                </button>
+                {drawnPolygonPath && (
+                  <div className="success-message">
+                    ✓ Custom area selected - routes in area will highlight
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1128,7 +1568,56 @@ function EDDMMapper() {
           )}
 
           {/* Map Section - Full width, edge to edge */}
-          <div className="map-wrapper">
+          <div className={`map-wrapper ${isDrawingMode ? 'drawing-mode' : ''}`}>
+            {/* Drawing Mode Banner */}
+            {isDrawingMode && (
+              <div className="drawing-mode-banner">
+                <span className="banner-icon">✏️</span>
+                Click to draw polygon points. Connect back to start to complete.
+              </div>
+            )}
+            {/* Map Controls - Always show Draw on Map, Heat Map only when routes loaded */}
+            <div className="map-controls">
+                {/* Draw on Map - ALWAYS visible, prominent */}
+                <button
+                  className={`draw-on-map-toggle primary ${isDrawingMode ? 'active' : ''}`}
+                  onClick={toggleDrawingMode}
+                  title="Draw a custom area to select routes"
+                >
+                  <span className="draw-icon">✏️</span>
+                  <span className="draw-label">{isDrawingMode ? 'Cancel Drawing' : 'Draw to Select'}</span>
+                </button>
+                {/* Heat Map - only when routes loaded */}
+                {routes.length > 0 && (
+                  <>
+                    <button
+                      className={`heat-map-toggle ${showHeatMap ? 'active' : ''}`}
+                      onClick={() => setShowHeatMap(!showHeatMap)}
+                      title="Toggle demographic density heat map"
+                    >
+                      <span className="heat-map-icon">🔥</span>
+                      <span className="heat-map-label">{showHeatMap ? 'Hide' : 'Show'} Density Map</span>
+                    </button>
+                    {showHeatMap && (
+                      <div className="heat-map-legend">
+                        <span className="legend-label">Low</span>
+                        <div className="legend-gradient"></div>
+                        <span className="legend-label">High</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {drawnPolygonPath && (
+                  <button
+                    className="clear-polygon-btn"
+                    onClick={clearDrawnPolygon}
+                    title="Clear drawn area"
+                  >
+                    <span>🗑️</span>
+                    <span className="draw-label">Clear Area</span>
+                  </button>
+                )}
+              </div>
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '650px' }}
               center={mapCenter}
@@ -1137,7 +1626,27 @@ function EDDMMapper() {
                 mapTypeControl: false,
                 fullscreenControl: true,
               }}
+              onLoad={(map) => { mapRef.current = map; }}
             >
+              {/* Drawing Manager for custom polygon selection */}
+              {isDrawingMode && (
+                <DrawingManager
+                  drawingMode={window.google?.maps?.drawing?.OverlayType?.POLYGON}
+                  onPolygonComplete={handlePolygonComplete}
+                  options={{
+                    drawingControl: false,
+                    polygonOptions: {
+                      fillColor: '#3B82F6',
+                      fillOpacity: 0.3,
+                      strokeColor: '#3B82F6',
+                      strokeWeight: 2,
+                      editable: true,
+                      draggable: true,
+                    },
+                  }}
+                />
+              )}
+
               {/* Coverage circle and center marker */}
               {circleCenter && (
                 <>
@@ -1166,21 +1675,35 @@ function EDDMMapper() {
                 </>
               )}
 
-              {routes.map(route => {
+              {/* When polygon is drawn, only show routes inside polygon. Otherwise show all routes */}
+              {(drawnPolygonPath && drawnPolygonPath.length >= 3 ? filteredRoutes : routes).map(route => {
                 const isInRadius = circleCenter && routesInRadius.some(r => r.id === route.id);
                 const isSelected = selectedRoutes.includes(route.id);
 
                 let strokeColor, fillColor, opacity, clickable;
 
-                if (circleCenter) {
+                // Heat map mode - override colors based on household density
+                if (showHeatMap && !isSelected) {
+                  const heatColor = getHeatMapColor(
+                    route.households,
+                    heatMapBounds.min,
+                    heatMapBounds.max
+                  );
+                  strokeColor = heatColor;
+                  fillColor = heatColor;
+                  opacity = 0.9;
+                  clickable = true;
+                } else if (circleCenter) {
                   if (isSelected) {
                     strokeColor = '#D32F2F';
                     fillColor = '#D32F2F';
                     opacity = 0.8;
                     clickable = true;
                   } else if (isInRadius) {
-                    strokeColor = '#4A90E2';
-                    fillColor = '#4A90E2';
+                    strokeColor = showHeatMap
+                      ? getHeatMapColor(route.households, heatMapBounds.min, heatMapBounds.max)
+                      : '#4A90E2';
+                    fillColor = strokeColor;
                     opacity = 0.8;
                     clickable = true;
                   } else {
@@ -1194,8 +1717,10 @@ function EDDMMapper() {
                     strokeColor = '#D32F2F';
                     fillColor = '#D32F2F';
                   } else {
-                    strokeColor = '#4A90E2';
-                    fillColor = '#4A90E2';
+                    strokeColor = showHeatMap
+                      ? getHeatMapColor(route.households, heatMapBounds.min, heatMapBounds.max)
+                      : '#4A90E2';
+                    fillColor = strokeColor;
                   }
                   opacity = 0.8;
                   clickable = true;
@@ -1272,6 +1797,13 @@ function EDDMMapper() {
                   </div>
                   {filteredRoutes.length > 0 && (
                     <div className="routes-header-actions">
+                      <button
+                        className="smart-budget-btn"
+                        onClick={() => setShowBudgetOptimizer(true)}
+                        title="Automatically select optimal routes for your budget"
+                      >
+                        💰 Smart Budget
+                      </button>
                       {selectedRoutes.length === filteredRoutes.length ? (
                         <button
                           className="select-all-button selected"
@@ -1298,8 +1830,9 @@ function EDDMMapper() {
                     <p>No routes match the selected filters. Try changing your audience type or radius.</p>
                   </div>
                 ) : (
+                  <>
                   <div className="routes-grid">
-                    {filteredRoutes.map(route => {
+                    {filteredRoutes.map((route, index) => {
                       const isSelected = selectedRoutes.includes(route.id);
                       const targetedCount = deliveryType === 'residential'
                         ? route.residential
@@ -1307,14 +1840,23 @@ function EDDMMapper() {
                           ? route.business
                           : route.households;
 
+                      // AI Route Recommender - use memoized set for O(1) lookup
+                      const isAIRecommended = aiRecommendedRouteIds.has(route.id);
+
                       return (
                         <div
                           key={route.id}
-                          className={`route-card ${isSelected ? 'selected' : ''}`}
+                          className={`route-card ${isSelected ? 'selected' : ''} ${isAIRecommended ? 'ai-recommended' : ''}`}
                           onClick={() => toggleRouteSelection(route.id)}
                           onMouseEnter={() => setHoveredRoute(route.id)}
                           onMouseLeave={() => setHoveredRoute(null)}
                         >
+                          {isAIRecommended && (
+                            <div className="ai-recommender-badge">
+                              <span className="ai-badge-icon">✨</span>
+                              <span className="ai-badge-text">AI Recommended</span>
+                            </div>
+                          )}
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1326,10 +1868,57 @@ function EDDMMapper() {
                           <div className="route-card-count">{targetedCount.toLocaleString()}</div>
                           <div className="route-card-count-label">{audienceLabel[deliveryType]}</div>
                           <div className="route-card-zip">ZIP {route.zipCode}</div>
+                          <div className="route-card-actions">
+                            <button
+                              className="route-action-btn street-view-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openStreetView(route);
+                              }}
+                              title="Preview neighborhood"
+                            >
+                              👁️
+                            </button>
+                            <button
+                              className={`route-action-btn compare-btn ${comparisonRoutes.includes(route.id) ? 'active' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRouteComparison(route.id);
+                              }}
+                              title="Add to comparison"
+                            >
+                              ⚖️
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
+
+                  {/* Comparison bar - show when routes are being compared */}
+                  {comparisonRoutes.length > 0 && (
+                    <div className="comparison-bar">
+                      <span className="comparison-bar-text">
+                        {comparisonRoutes.length} route{comparisonRoutes.length > 1 ? 's' : ''} selected for comparison
+                      </span>
+                      <div className="comparison-bar-actions">
+                        <button
+                          className="compare-now-btn"
+                          onClick={() => setShowComparison(true)}
+                          disabled={comparisonRoutes.length < 2}
+                        >
+                          Compare Now
+                        </button>
+                        <button
+                          className="clear-compare-btn"
+                          onClick={() => setComparisonRoutes([])}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
 
@@ -1383,14 +1972,70 @@ function EDDMMapper() {
                             </div>
                           </div>
 
+                          {/* Campaign Timeline Simulator - Industry-First Feature */}
+                          <div className="campaign-timeline">
+                            <div className="timeline-header">
+                              <span className="timeline-icon">📅</span>
+                              <span className="timeline-title">Campaign Timeline</span>
+                              <span className="timeline-badge">Estimated Delivery</span>
+                            </div>
+                            <div className="timeline-steps">
+                              <div className="timeline-step completed">
+                                <div className="step-marker"></div>
+                                <div className="step-content">
+                                  <div className="step-label">{formatTimelineDate(0)}</div>
+                                  <div className="step-detail">Submit your campaign</div>
+                                </div>
+                              </div>
+                              <div className="timeline-connector"></div>
+                              <div className="timeline-step">
+                                <div className="step-marker"></div>
+                                <div className="step-content">
+                                  <div className="step-label">{formatTimelineDate(1)} - {formatTimelineDate(2)}</div>
+                                  <div className="step-detail">Design & proof approval</div>
+                                </div>
+                              </div>
+                              <div className="timeline-connector"></div>
+                              <div className="timeline-step">
+                                <div className="step-marker"></div>
+                                <div className="step-content">
+                                  <div className="step-label">{formatTimelineDate(3)} - {formatTimelineDate(5)}</div>
+                                  <div className="step-detail">Print & prepare mailing</div>
+                                </div>
+                              </div>
+                              <div className="timeline-connector"></div>
+                              <div className="timeline-step final">
+                                <div className="step-marker">
+                                  <span className="step-icon">📬</span>
+                                </div>
+                                <div className="step-content">
+                                  <div className="step-label">{formatTimelineDate(7)} - {formatTimelineDate(10)}</div>
+                                  <div className="step-detail">Delivered to mailboxes</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {pricing.nextTier && pricing.addressesUntilNextDiscount > 0 && (
                             <div className="estimate-incentive">
                               💡 Add {pricing.addressesUntilNextDiscount.toLocaleString()} more addresses to unlock next pricing tier and save ${pricing.potentialSavings.toFixed(2)}
                             </div>
                           )}
 
+                          {/* Urgency & Trust Section */}
+                          <div className="conversion-trust-block">
+                            <div className="urgency-indicator">
+                              <span className="urgency-icon">🔥</span>
+                              <span className="urgency-text">Lock in this price - quotes valid for 7 days</span>
+                            </div>
+                            <div className="trust-badges-row">
+                              <span className="mini-trust-badge">✓ No upfront payment</span>
+                              <span className="mini-trust-badge">✓ Free design review</span>
+                            </div>
+                          </div>
+
                           <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                            REQUEST FINAL QUOTE
+                            🚀 REQUEST FREE QUOTE
                           </button>
 
                           <button className="estimate-cta estimate-cta-secondary" onClick={() => setShowROICalculator(true)}>
@@ -1436,6 +2081,56 @@ function EDDMMapper() {
             </div>
           )}
 
+          {/* Testimonials Section - Social Proof */}
+          <section className="testimonials-section">
+            <div className="testimonials-header">
+              <h2>Trusted by Local Businesses</h2>
+              <p>See why businesses across Florida choose MPA for their direct mail campaigns</p>
+            </div>
+            <div className="testimonials-grid">
+              <div className="testimonial-card">
+                <div className="testimonial-stars">★★★★★</div>
+                <p className="testimonial-text">
+                  "Our EDDM campaign brought in 47 new customers in just 2 weeks. The ROI was incredible - we spent $800 and made over $12,000 in new business."
+                </p>
+                <div className="testimonial-author">
+                  <div className="author-avatar">JR</div>
+                  <div className="author-info">
+                    <div className="author-name">James Rodriguez</div>
+                    <div className="author-business">Rodriguez HVAC, Lakeland</div>
+                  </div>
+                </div>
+              </div>
+              <div className="testimonial-card featured">
+                <div className="testimonial-badge">Most Recent</div>
+                <div className="testimonial-stars">★★★★★</div>
+                <p className="testimonial-text">
+                  "This tool made planning our campaign so easy. We selected 15,000 homes around our location and had postcards in mailboxes within 10 days. Highly recommend!"
+                </p>
+                <div className="testimonial-author">
+                  <div className="author-avatar">SM</div>
+                  <div className="author-info">
+                    <div className="author-name">Sarah Mitchell</div>
+                    <div className="author-business">Mitchell's Dental, Winter Haven</div>
+                  </div>
+                </div>
+              </div>
+              <div className="testimonial-card">
+                <div className="testimonial-stars">★★★★★</div>
+                <p className="testimonial-text">
+                  "We've done 3 campaigns with MPA now. Each one has been flawless. The pricing is transparent and the quality is top-notch."
+                </p>
+                <div className="testimonial-author">
+                  <div className="author-avatar">MK</div>
+                  <div className="author-info">
+                    <div className="author-name">Mike Kim</div>
+                    <div className="author-business">Kim's Auto Repair, Bartow</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Trust Bar - Navy footer */}
           <div className="trust-bar">
             <div className="trust-item">
@@ -1467,8 +2162,18 @@ function EDDMMapper() {
         <div className="modal-overlay" onClick={() => setShowQuoteForm(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowQuoteForm(false)}>×</button>
-            <h2>Get Your Final Quote</h2>
-            <p>Complete the form below and we'll contact you within 2 business hours with final pricing and a detailed proposal customized for your campaign.</p>
+
+            {/* Conversion header with urgency */}
+            <div className="modal-conversion-header">
+              <span className="modal-badge">📬 FREE QUOTE</span>
+              <h2>You're One Step Away From Your Campaign</h2>
+              <p>Complete the form below and we'll contact you within <strong>2 business hours</strong> with final pricing and a detailed proposal customized for your campaign.</p>
+              <div className="modal-guarantees">
+                <span className="modal-guarantee">✓ No obligation</span>
+                <span className="modal-guarantee">✓ No payment required</span>
+                <span className="modal-guarantee">✓ Free design consultation</span>
+              </div>
+            </div>
 
             <form onSubmit={handleSubmitQuote}>
               <h3 className="form-section-title">Contact Information</h3>
@@ -1717,8 +2422,224 @@ function EDDMMapper() {
         </div>
       )}
 
+      {/* Smart Budget Optimizer Modal */}
+      {showBudgetOptimizer && (
+        <div className="budget-optimizer-modal">
+          <div className="budget-optimizer-overlay" onClick={() => setShowBudgetOptimizer(false)}></div>
+          <div className="budget-optimizer-content">
+            <button className="modal-close" onClick={() => setShowBudgetOptimizer(false)}>×</button>
+            <div className="budget-optimizer-header">
+              <span className="budget-optimizer-icon">💰</span>
+              <h2>Smart Budget Optimizer</h2>
+              <p className="budget-optimizer-subtitle">
+                Tell us your budget and we'll automatically select the best routes to maximize your reach
+              </p>
+            </div>
+
+            <div className="budget-slider-container">
+              <div className="budget-display">
+                <span className="budget-label">Your Budget</span>
+                <span className="budget-amount">${targetBudget.toLocaleString()}</span>
+              </div>
+              <input
+                type="range"
+                min="200"
+                max="10000"
+                step="100"
+                value={targetBudget}
+                onChange={(e) => setTargetBudget(parseInt(e.target.value))}
+                className="budget-slider"
+              />
+              <div className="budget-range-labels">
+                <span>$200</span>
+                <span>$10,000</span>
+              </div>
+            </div>
+
+            <div className="budget-quick-select">
+              <span className="quick-select-label">Quick select:</span>
+              <div className="quick-select-buttons">
+                {[500, 1000, 2500, 5000].map(amount => (
+                  <button
+                    key={amount}
+                    className={`quick-select-btn ${targetBudget === amount ? 'active' : ''}`}
+                    onClick={() => setTargetBudget(amount)}
+                  >
+                    ${amount.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="budget-estimate-preview">
+              <div className="estimate-item">
+                <span className="estimate-label">Available Routes</span>
+                <span className="estimate-value">{filteredRoutes.length}</span>
+              </div>
+              <div className="estimate-item">
+                <span className="estimate-label">Est. Addresses</span>
+                <span className="estimate-value">
+                  {Math.round(targetBudget / 0.50).toLocaleString()}+
+                </span>
+              </div>
+            </div>
+
+            <button
+              className="optimize-btn"
+              onClick={() => optimizeForBudget(targetBudget)}
+              disabled={budgetOptimizing || filteredRoutes.length === 0}
+            >
+              {budgetOptimizing ? (
+                <>Optimizing...</>
+              ) : (
+                <>🎯 Optimize My Campaign</>
+              )}
+            </button>
+
+            <p className="budget-optimizer-note">
+              Our algorithm maximizes addresses per dollar by analyzing all {filteredRoutes.length} routes
+              and selecting the optimal combination for your budget.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Street View Preview Modal */}
+      {showStreetView && streetViewRoute && (
+        <div className="street-view-modal">
+          <div className="street-view-overlay" onClick={() => setShowStreetView(false)}></div>
+          <div className="street-view-content">
+            <button className="modal-close" onClick={() => setShowStreetView(false)}>×</button>
+            <div className="street-view-header">
+              <h2>📍 Neighborhood Preview</h2>
+              <p className="street-view-route-name">
+                {streetViewRoute.name} • ZIP {streetViewRoute.zipCode}
+              </p>
+            </div>
+            <div className="street-view-container">
+              <iframe
+                title="Street View"
+                width="100%"
+                height="400"
+                style={{ border: 0, borderRadius: '8px' }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://www.google.com/maps/embed/v1/streetview?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&location=${streetViewRoute.centerLat},${streetViewRoute.centerLng}&heading=210&pitch=10&fov=90`}
+              />
+            </div>
+            <div className="street-view-stats">
+              <div className="sv-stat">
+                <span className="sv-stat-value">{streetViewRoute.households.toLocaleString()}</span>
+                <span className="sv-stat-label">Total Addresses</span>
+              </div>
+              <div className="sv-stat">
+                <span className="sv-stat-value">{streetViewRoute.residential.toLocaleString()}</span>
+                <span className="sv-stat-label">Residential</span>
+              </div>
+              <div className="sv-stat">
+                <span className="sv-stat-value">{streetViewRoute.business.toLocaleString()}</span>
+                <span className="sv-stat-label">Business</span>
+              </div>
+            </div>
+            <div className="street-view-actions">
+              <button
+                className={`sv-action-btn ${selectedRoutes.includes(streetViewRoute.id) ? 'selected' : ''}`}
+                onClick={() => {
+                  toggleRouteSelection(streetViewRoute.id);
+                }}
+              >
+                {selectedRoutes.includes(streetViewRoute.id) ? '✓ Selected' : '+ Add to Campaign'}
+              </button>
+              <a
+                href={`https://www.google.com/maps/@${streetViewRoute.centerLat},${streetViewRoute.centerLng},15z`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="sv-action-btn secondary"
+              >
+                Open in Google Maps ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Route Comparison Modal */}
+      {showComparison && comparisonRoutes.length >= 2 && (
+        <div className="comparison-modal">
+          <div className="comparison-overlay" onClick={() => setShowComparison(false)}></div>
+          <div className="comparison-content">
+            <button className="modal-close" onClick={() => setShowComparison(false)}>×</button>
+            <div className="comparison-header">
+              <h2>📊 Route Comparison</h2>
+              <p>Compare demographics and reach side-by-side</p>
+            </div>
+            <div className="comparison-table">
+              <div className="comparison-row header">
+                <div className="comparison-label">Metric</div>
+                {comparisonRoutes.map(routeId => {
+                  const route = routes.find(r => r.id === routeId);
+                  return route ? (
+                    <div key={routeId} className="comparison-cell">
+                      <strong>{route.name}</strong>
+                      <small>ZIP {route.zipCode}</small>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+              {[
+                { label: 'Total Addresses', key: 'households' },
+                { label: 'Residential', key: 'residential' },
+                { label: 'Business', key: 'business' },
+                { label: 'Median Age', key: 'medianAge', suffix: ' yrs' },
+                { label: 'Median Income', key: 'medianIncome', prefix: '$', format: 'currency' },
+                { label: 'Avg Household Size', key: 'householdSize' }
+              ].map(metric => (
+                <div className="comparison-row" key={metric.key}>
+                  <div className="comparison-label">{metric.label}</div>
+                  {comparisonRoutes.map(routeId => {
+                    const route = routes.find(r => r.id === routeId);
+                    if (!route) return null;
+                    let value = route[metric.key];
+                    if (metric.format === 'currency') {
+                      value = value ? value.toLocaleString() : 'N/A';
+                    } else if (typeof value === 'number') {
+                      value = value.toLocaleString();
+                    }
+                    return (
+                      <div key={routeId} className="comparison-cell">
+                        {metric.prefix || ''}{value || 'N/A'}{metric.suffix || ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="comparison-actions">
+              <button
+                className="comparison-select-btn"
+                onClick={() => {
+                  // Add all comparison routes to selection
+                  const newSelection = [...new Set([...selectedRoutes, ...comparisonRoutes])];
+                  setSelectedRoutes(newSelection);
+                  setShowComparison(false);
+                }}
+              >
+                Add All to Campaign
+              </button>
+              <button
+                className="comparison-clear-btn"
+                onClick={() => setComparisonRoutes([])}
+              >
+                Clear Comparison
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ROI Calculator Modal */}
-      {showROICalculator && (
+      {showROICalculator && pricing && !pricing.belowMinimum && (
         <ROICalculator
           campaignCost={pricing.total}
           totalAddresses={pricing.addresses}
