@@ -3,6 +3,7 @@ import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete,
 import * as Sentry from '@sentry/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import ROICalculator from '../ROICalculator/ROICalculator';
 import './EDDMMapper.css';
 
@@ -1443,11 +1444,36 @@ function EDDMMapper() {
       doc.text(campaignName || 'My EDDM Campaign', 20, 35);
       doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 140, 35);
 
+      // Capture map image
+      const mapContainer = document.querySelector('.map-container');
+      if (mapContainer) {
+        try {
+          const canvas = await html2canvas(mapContainer, {
+            useCORS: true,
+            allowTaint: true,
+            scale: 2,
+            logging: false,
+            backgroundColor: '#1a1a2e'
+          });
+          const mapImageData = canvas.toDataURL('image/jpeg', 0.8);
+
+          // Add map image to PDF (full width with aspect ratio)
+          const imgWidth = 170;
+          const imgHeight = (canvas.height / canvas.width) * imgWidth;
+          doc.addImage(mapImageData, 'JPEG', 20, 50, imgWidth, Math.min(imgHeight, 100));
+          currentY = 50 + Math.min(imgHeight, 100) + 10;
+        } catch (mapErr) {
+          console.warn('Could not capture map image:', mapErr);
+          // Continue without map image
+        }
+      }
+
       // Campaign Overview
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('Campaign Overview', 20, 60);
+      doc.text('Campaign Overview', 20, currentY);
+      currentY += 5;
 
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
