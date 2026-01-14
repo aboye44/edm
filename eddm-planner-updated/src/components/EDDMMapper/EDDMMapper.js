@@ -1445,27 +1445,39 @@ function EDDMMapper() {
       doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 140, 35);
 
       // Capture map image
-      const mapContainer = document.querySelector('.map-container');
+      const mapContainer = document.getElementById('map-capture-container');
       if (mapContainer) {
         try {
+          console.log('📸 Capturing map image...');
           const canvas = await html2canvas(mapContainer, {
             useCORS: true,
             allowTaint: true,
-            scale: 2,
+            foreignObjectRendering: false,
+            scale: 1.5,
             logging: false,
-            backgroundColor: '#1a1a2e'
+            backgroundColor: '#0A1628',
+            ignoreElements: (element) => {
+              // Ignore elements that might cause CORS issues
+              return element.classList?.contains('gm-style-cc') ||
+                     element.classList?.contains('gmnoprint');
+            }
           });
-          const mapImageData = canvas.toDataURL('image/jpeg', 0.8);
+          console.log('✅ Map captured, converting to image...');
+          const mapImageData = canvas.toDataURL('image/png', 0.9);
 
           // Add map image to PDF (full width with aspect ratio)
           const imgWidth = 170;
           const imgHeight = (canvas.height / canvas.width) * imgWidth;
-          doc.addImage(mapImageData, 'JPEG', 20, 50, imgWidth, Math.min(imgHeight, 100));
-          currentY = 50 + Math.min(imgHeight, 100) + 10;
+          const finalHeight = Math.min(imgHeight, 90);
+          doc.addImage(mapImageData, 'PNG', 20, 50, imgWidth, finalHeight);
+          currentY = 50 + finalHeight + 10;
+          console.log('✅ Map added to PDF');
         } catch (mapErr) {
           console.warn('Could not capture map image:', mapErr);
           // Continue without map image
         }
+      } else {
+        console.warn('Map container not found');
       }
 
       // Campaign Overview
@@ -2037,6 +2049,7 @@ function EDDMMapper() {
                   </button>
                 )}
               </div>
+            <div id="map-capture-container">
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '650px' }}
               center={mapCenter}
@@ -2182,6 +2195,7 @@ function EDDMMapper() {
                 );
               })}
             </GoogleMap>
+            </div>
           </div>
 
           {/* Two-Column Layout: Routes Grid + Sticky Estimate */}
