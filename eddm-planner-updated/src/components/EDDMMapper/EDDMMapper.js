@@ -1617,23 +1617,14 @@ function EDDMMapper() {
 
         // If there's a design file, we'll send leadData without the file
         // File will be emailed separately (handled by Zapier)
-        const response = await fetch(webhookUrl, {
+        await fetch(webhookUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(leadData),
-          // Timeout after 10 seconds
-          signal: AbortSignal.timeout(10000)
+          mode: 'no-cors',
+          body: JSON.stringify(leadData)
         });
 
-        if (!response.ok) {
-          throw new Error(`Webhook failed with status ${response.status}`);
-        }
-
-        const responseData = await response.json().catch(() => ({}));
-        console.log('✅ Webhook success:', responseData);
+        // With no-cors mode, we can't read the response, but if fetch didn't throw, it was sent
+        console.log('✅ Webhook request sent (no-cors mode)');
         webhookSuccess = true;
 
         // If user uploaded a file, trigger email with file attachment
