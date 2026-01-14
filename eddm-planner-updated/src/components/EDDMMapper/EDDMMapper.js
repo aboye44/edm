@@ -1738,13 +1738,6 @@ function EDDMMapper() {
             <div className="mpa-header-logo">MPA</div>
           </div>
 
-          {/* Live Campaign Counter - Social Proof */}
-          <div className={`live-campaign-counter ${campaignCountAnimating ? 'pulse' : ''}`}>
-            <span className="live-counter-pulse"></span>
-            <span className="live-counter-number">{campaignCount}</span>
-            <span className="live-counter-text">campaigns planned this week</span>
-          </div>
-
           <button className="mpa-header-contact" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
             <span className="contact-icon">🎯</span>
             Need a Targeted Campaign?
