@@ -2425,11 +2425,6 @@ function EDDMMapper() {
                             🚀 REQUEST FREE QUOTE
                           </button>
 
-                          {/* Feature 5: Direct Print Ordering */}
-                          <button className="estimate-cta estimate-cta-order" onClick={handleOrderNow}>
-                            🛒 ORDER NOW
-                          </button>
-
                           {/* Secondary Actions Row */}
                           <div className="estimate-actions-row">
                             <button className="estimate-action-btn" onClick={() => setShowROICalculator(true)} title="See ROI">
@@ -2574,10 +2569,9 @@ function EDDMMapper() {
               <div className="form-row">
                 <input
                   type="text"
-                  placeholder="Company Name *"
+                  placeholder="Company Name (optional)"
                   value={formData.company}
                   onChange={(e) => setFormData({...formData, company: e.target.value})}
-                  required
                 />
               </div>
 
