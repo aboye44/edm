@@ -1480,7 +1480,7 @@ function EDDMMapper() {
       ];
 
       if (!pricing?.belowMinimum && pricing) {
-        overviewData.push(['Estimated Total', `$${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        overviewData.push(['Estimated Total', `$${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2})}`]);
         overviewData.push(['Pricing Tier', pricing.currentTier]);
       }
 
