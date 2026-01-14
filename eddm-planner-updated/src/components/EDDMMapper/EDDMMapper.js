@@ -124,13 +124,6 @@ const defaultCenter = {
   lng: -81.9498
 };
 
-// Helper function to format dates for campaign timeline
-const formatTimelineDate = (daysFromNow) => {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
 // Helper function to get heat map color based on household density
 // Returns a color from blue (low) through green/yellow to red (high)
 const getHeatMapColor = (value, min, max) => {
@@ -206,10 +199,6 @@ function EDDMMapper() {
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState(null);
   const autocompleteRef = useRef(null);
-
-  // Live Campaign Counter (social proof)
-  const [campaignCount, setCampaignCount] = useState(47);
-  const [campaignCountAnimating, setCampaignCountAnimating] = useState(false);
 
   // Demographic Heat Map overlay
   const [showHeatMap, setShowHeatMap] = useState(false);
@@ -833,22 +822,6 @@ function EDDMMapper() {
     });
   }, [filteredRoutes]);
 
-  // Live campaign counter - simulates real-time social proof
-  useEffect(() => {
-    // Randomly increment the counter every 15-45 seconds to simulate activity
-    const interval = setInterval(() => {
-      const shouldIncrement = Math.random() > 0.3; // 70% chance to increment
-      if (shouldIncrement) {
-        setCampaignCountAnimating(true);
-        setCampaignCount(prev => prev + 1);
-        // Reset animation flag after animation completes
-        setTimeout(() => setCampaignCountAnimating(false), 600);
-      }
-    }, Math.random() * 30000 + 15000); // Random interval between 15-45 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Select all routes within the radius (defined after filteredRoutes)
   const selectAllRoutesInRadius = useCallback(() => {
     const routeIds = filteredRoutes.map(route => route.id);
@@ -1284,7 +1257,7 @@ function EDDMMapper() {
       try {
         await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          mode: 'no-cors',
           body: JSON.stringify({ type: 'email_summary', ...emailData })
         });
       } catch (err) {
@@ -1395,25 +1368,6 @@ function EDDMMapper() {
       }
     }
   }, [fetchEDDMRoutes]);
-
-  // Feature 5: Direct Print Ordering
-  const handleOrderNow = useCallback(() => {
-    const pricing = calculateTotal();
-    const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
-
-    // Build order URL with parameters
-    const orderParams = new URLSearchParams({
-      source: 'eddm-planner',
-      routes: selectedRoutes.length,
-      addresses: pricing?.addresses || 0,
-      total: pricing?.belowMinimum ? 'custom' : pricing?.total?.toFixed(2),
-      zips: [...new Set(selectedRouteData.map(r => r.zipCode))].join(','),
-      type: deliveryType
-    });
-
-    // Open MPA order form with pre-filled data
-    window.open(`https://www.mailpro.org/request-a-quote?${orderParams.toString()}`, '_blank');
-  }, [routes, selectedRoutes, deliveryType, calculateTotal]);
 
   // Feature 6: Generate PDF Export
   const generatePDF = useCallback(async () => {
@@ -1526,7 +1480,7 @@ function EDDMMapper() {
       ];
 
       if (!pricing?.belowMinimum && pricing) {
-        overviewData.push(['Estimated Total', `$${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2})}`]);
+        overviewData.push(['Estimated Total', `$${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
         overviewData.push(['Pricing Tier', pricing.currentTier]);
       }
 
