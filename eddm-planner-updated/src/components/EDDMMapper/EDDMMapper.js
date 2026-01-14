@@ -296,6 +296,11 @@ function EDDMMapper() {
 
       const features = data.results[0].value.features;
 
+      // Handle ZIP codes with no EDDM routes (universities, PO Box only, etc.)
+      if (features.length === 0) {
+        throw new Error(`ZIP code ${zip} has no EDDM carrier routes available. This may be a university, military base, or PO Box-only ZIP code. Try a nearby residential ZIP code.`);
+      }
+
       // Transform USPS data to our route format
       const transformedRoutes = features.map((feature, index) => {
         const attrs = feature.attributes;
@@ -1731,7 +1736,6 @@ function EDDMMapper() {
         <header className="mpa-header">
           <div className="mpa-header-left">
             <div className="mpa-header-logo">MPA</div>
-            <div className="mpa-header-tagline">Premium Direct Mail</div>
           </div>
 
           {/* Live Campaign Counter - Social Proof */}
