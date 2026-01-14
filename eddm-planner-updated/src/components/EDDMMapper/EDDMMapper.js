@@ -1468,7 +1468,7 @@ function EDDMMapper() {
           // Add map image to PDF (full width with aspect ratio)
           const imgWidth = 170;
           const imgHeight = (canvas.height / canvas.width) * imgWidth;
-          const finalHeight = Math.min(imgHeight, 90);
+          const finalHeight = Math.min(imgHeight, 120); // Larger map
           doc.addImage(mapImageData, 'PNG', 20, 50, imgWidth, finalHeight);
           currentY = 50 + finalHeight + 10;
           console.log('✅ Map added to PDF');
@@ -1547,17 +1547,36 @@ function EDDMMapper() {
       doc.setFont('helvetica', 'bold');
       doc.text('Selected Routes', 20, currentY);
 
-      const routeTableData = selectedRouteData.map(r => [
-        r.name,
-        r.zipCode,
-        r.households.toLocaleString(),
-        r.residential.toLocaleString(),
-        r.business.toLocaleString()
-      ]);
+      // Build table columns based on delivery type
+      let routeTableHeaders, routeTableData;
+      if (deliveryType === 'residential') {
+        routeTableHeaders = [['Route', 'ZIP', 'Residential Addresses']];
+        routeTableData = selectedRouteData.map(r => [
+          r.name,
+          r.zipCode,
+          r.residential.toLocaleString()
+        ]);
+      } else if (deliveryType === 'business') {
+        routeTableHeaders = [['Route', 'ZIP', 'Business Addresses']];
+        routeTableData = selectedRouteData.map(r => [
+          r.name,
+          r.zipCode,
+          r.business.toLocaleString()
+        ]);
+      } else {
+        routeTableHeaders = [['Route', 'ZIP', 'Total', 'Residential', 'Business']];
+        routeTableData = selectedRouteData.map(r => [
+          r.name,
+          r.zipCode,
+          r.households.toLocaleString(),
+          r.residential.toLocaleString(),
+          r.business.toLocaleString()
+        ]);
+      }
 
       autoTable(doc, {
         startY: currentY + 5,
-        head: [['Route', 'ZIP', 'Total', 'Residential', 'Business']],
+        head: routeTableHeaders,
         body: routeTableData,
         theme: 'striped',
         headStyles: { fillColor: [59, 130, 246] },
@@ -2384,50 +2403,6 @@ function EDDMMapper() {
                             </div>
                             <div className="estimate-includes">
                               Includes printing, postage & delivery
-                            </div>
-                          </div>
-
-                          {/* Campaign Timeline Simulator - Industry-First Feature */}
-                          <div className="campaign-timeline">
-                            <div className="timeline-header">
-                              <span className="timeline-icon">📅</span>
-                              <span className="timeline-title">Campaign Timeline</span>
-                              <span className="timeline-badge">Estimated Delivery</span>
-                            </div>
-                            <div className="timeline-steps">
-                              <div className="timeline-step completed">
-                                <div className="step-marker"></div>
-                                <div className="step-content">
-                                  <div className="step-label">{formatTimelineDate(0)}</div>
-                                  <div className="step-detail">Submit your campaign</div>
-                                </div>
-                              </div>
-                              <div className="timeline-connector"></div>
-                              <div className="timeline-step">
-                                <div className="step-marker"></div>
-                                <div className="step-content">
-                                  <div className="step-label">{formatTimelineDate(1)} - {formatTimelineDate(2)}</div>
-                                  <div className="step-detail">Design & proof approval</div>
-                                </div>
-                              </div>
-                              <div className="timeline-connector"></div>
-                              <div className="timeline-step">
-                                <div className="step-marker"></div>
-                                <div className="step-content">
-                                  <div className="step-label">{formatTimelineDate(3)} - {formatTimelineDate(5)}</div>
-                                  <div className="step-detail">Print & prepare mailing</div>
-                                </div>
-                              </div>
-                              <div className="timeline-connector"></div>
-                              <div className="timeline-step final">
-                                <div className="step-marker">
-                                  <span className="step-icon">📬</span>
-                                </div>
-                                <div className="step-content">
-                                  <div className="step-label">{formatTimelineDate(7)} - {formatTimelineDate(10)}</div>
-                                  <div className="step-detail">Delivered to mailboxes</div>
-                                </div>
-                              </div>
                             </div>
                           </div>
 

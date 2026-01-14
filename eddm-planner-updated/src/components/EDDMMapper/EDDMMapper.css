@@ -1219,13 +1219,14 @@
 }
 
 .estimate-total-amount {
-  font-size: 48px;
+  font-size: clamp(28px, 4vw, 44px);
   font-weight: 800;
   color: white;
   margin-bottom: 8px;
   line-height: 1;
   font-family: 'JetBrains Mono', monospace;
   text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  white-space: nowrap;
 }
 
 .estimate-includes {
