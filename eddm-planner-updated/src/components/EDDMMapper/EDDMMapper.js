@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete, DrawingManager } from '@react-google-maps/api';
 import * as Sentry from '@sentry/react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
+// PDF imports removed - feature not in use
 import ROICalculator from '../ROICalculator/ROICalculator';
 import './EDDMMapper.css';
 
@@ -236,9 +234,7 @@ function EDDMMapper() {
   const [multiZipLoading, setMultiZipLoading] = useState(false);
 
   // Feature 4: Save & Share Campaign
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareLink, setShareLink] = useState('');
-  const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  // Share feature state removed
   const [campaignName, setCampaignName] = useState('');
 
   // Form state
@@ -1276,37 +1272,7 @@ function EDDMMapper() {
   // Feature 4: Generate Share Link (unicode-safe encoding)
   // generateShareLink removed - feature not in use
 
-  // Feature 4: Copy share link to clipboard (with fallback for older browsers)
-  const copyShareLink = useCallback(() => {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(shareLink).then(() => {
-        setShareLinkCopied(true);
-        setTimeout(() => setShareLinkCopied(false), 2000);
-      }).catch(() => {
-        // Fallback if clipboard API fails
-        fallbackCopyToClipboard(shareLink);
-      });
-    } else {
-      fallbackCopyToClipboard(shareLink);
-    }
-
-    function fallbackCopyToClipboard(text) {
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        setShareLinkCopied(true);
-        setTimeout(() => setShareLinkCopied(false), 2000);
-      } catch (err) {
-        console.error('Fallback copy failed:', err);
-      }
-      document.body.removeChild(textArea);
-    }
-  }, [shareLink]);
+  // copyShareLink removed - feature not in use
 
   // Feature 4: Load shared campaign from URL (unicode-safe decoding)
   useEffect(() => {
@@ -2422,54 +2388,7 @@ function EDDMMapper() {
         </div>
       )}
 
-      {/* Feature 4: Share Campaign Modal */}
-      {showShareModal && (
-        <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
-          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowShareModal(false)}>×</button>
-
-            <div className="share-modal-header">
-              <span className="share-modal-icon">🔗</span>
-              <h2>Share Your Campaign</h2>
-              <p>Share this link with your team or clients to show them the campaign.</p>
-            </div>
-
-            <div className="share-link-container">
-              <input
-                type="text"
-                value={shareLink}
-                readOnly
-                className="share-link-input"
-                onClick={(e) => e.target.select()}
-              />
-              <button className="copy-link-btn" onClick={copyShareLink}>
-                {shareLinkCopied ? '✅ Copied!' : '📋 Copy'}
-              </button>
-            </div>
-
-            <div className="share-info">
-              <p><strong>Campaign:</strong> {campaignName || 'Untitled Campaign'}</p>
-              <p><strong>Routes:</strong> {selectedRoutes.length} selected</p>
-              <p><strong>ZIP codes:</strong> {addedZips.length > 0 ? addedZips.join(', ') : 'N/A'}</p>
-            </div>
-
-            <div className="share-social-buttons">
-              <button
-                className="share-social-btn email"
-                onClick={() => window.location.href = `mailto:?subject=EDDM Campaign: ${campaignName || 'My Campaign'}&body=Check out my EDDM campaign: ${shareLink}`}
-              >
-                📧 Email
-              </button>
-              <button
-                className="share-social-btn"
-                onClick={() => window.open(`https://wa.me/?text=Check out my EDDM campaign: ${encodeURIComponent(shareLink)}`, '_blank')}
-              >
-                💬 WhatsApp
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Share modal removed */}
 
       {/* ROI Calculator Modal */}
       {showROICalculator && pricing && !pricing.belowMinimum && (
