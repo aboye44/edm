@@ -120,8 +120,8 @@ const getNumericAttribute = (attrs, keys) => {
 };
 
 const defaultCenter = {
-  lat: 28.0395,
-  lng: -81.9498
+  lat: 39.8283,
+  lng: -98.5795
 };
 
 // Helper function to get heat map color based on household density
@@ -183,6 +183,7 @@ function EDDMMapper() {
   const [selectedRoutes, setSelectedRoutes] = useState([]);
   const [hoveredRoute, setHoveredRoute] = useState(null);
   const [mapCenter, setMapCenter] = useState(defaultCenter);
+  const [mapZoom, setMapZoom] = useState(4);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [showROICalculator, setShowROICalculator] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -250,15 +251,7 @@ function EDDMMapper() {
     email: '',
     phone: '',
     company: '',
-    postcardSize: '6.25" x 9" (Standard)',
-    customSize: '',
-    paperStock: '100# Gloss Cover (Most Common)',
-    customStock: '',
-    printingOptions: 'Full Color Both Sides (most common)',
-    timeline: '',
-    goals: '',
-    designOption: 'need-design', // 'need-design' or 'have-design'
-    designFile: null
+    message: ''
   });
 
   // Fetch real USPS EDDM routes via Netlify Function (avoids CORS issues)
@@ -418,6 +411,7 @@ function EDDMMapper() {
           if (currentRoutes.length > 0) {
             const firstRoute = currentRoutes[0];
             setMapCenter({ lat: firstRoute.centerLat, lng: firstRoute.centerLng });
+            setMapZoom(13);
           }
           return currentRoutes;
         });
@@ -634,6 +628,7 @@ function EDDMMapper() {
         // Only center map if no routes exist yet (first search)
         if (routes.length === 0) {
           setMapCenter({ lat, lng });
+          setMapZoom(13);
         }
 
         setGeocodeError(null);
@@ -705,6 +700,7 @@ function EDDMMapper() {
         // Only center map if no routes exist yet (first search)
         if (routes.length === 0) {
           setMapCenter({ lat: location.lat, lng: location.lng });
+          setMapZoom(13);
         }
 
         setGeocodeError(null);
@@ -1189,6 +1185,7 @@ function EDDMMapper() {
           const newZipRoutes = currentRoutes.filter(r => r.zipCode === zipToAdd);
           if (newZipRoutes.length > 0) {
             setMapCenter({ lat: newZipRoutes[0].centerLat, lng: newZipRoutes[0].centerLng });
+            setMapZoom(13);
           }
           return currentRoutes;
         });
@@ -1598,154 +1595,53 @@ function EDDMMapper() {
 
     const pricing = calculateTotal();
     const selectedRouteData = routes.filter(r => selectedRoutes.includes(r.id));
+    const routeIds = selectedRoutes.join(', ');
+    const zipCodes = [...new Set(selectedRouteData.map(r => r.zipCode))].join(', ');
+    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
 
-    const leadData = {
-      ...formData,
-      routeIds: selectedRoutes,
-      routeNames: selectedRouteData.map(r => `${r.name} (ZIP ${r.zipCode})`).join(', '),
-      totalAddresses: pricing.addresses,
-      deliveryType,
-      // Only include pricing if above minimum
-      ...(pricing.belowMinimum ? {
-        belowMinimum: true,
-        minimumQuantity: pricing.minimumQuantity
-      } : {
-        printCost: pricing.printCost.toFixed(2),
-        postageCost: pricing.postageCost.toFixed(2),
-        bundlingCost: pricing.bundlingCost.toFixed(2),
-        printRate: pricing.printRate,
-        pricingTier: pricing.currentTier,
-        estimatedTotal: pricing.total.toFixed(2)
-      }),
-      designStatus: formData.designOption === 'need-design' ? 'Needs Design Services' : 'Has Print-Ready Files',
-      hasDesignFile: formData.designFile ? true : false,
-      designFileName: formData.designFile ? formData.designFile.name : null,
-      timestamp: new Date().toISOString(),
-      id: `lead-${Date.now()}`
-    };
-
-    // Track quote submission attempt in Sentry
-    Sentry.addBreadcrumb({
-      category: 'user-action',
-      message: 'Quote form submitted',
-      level: 'info',
-      data: {
-        company: formData.company,
-        totalAddresses: pricing.addresses,
-        estimatedTotal: pricing.belowMinimum ? 'Below minimum' : pricing.total,
-        routesSelected: selectedRoutes.length,
-        belowMinimum: pricing.belowMinimum
-      }
-    });
-
-    // Set user context for error tracking
-    Sentry.setUser({
-      email: formData.email,
-      username: `${formData.firstName} ${formData.lastName}`,
-      company: formData.company
-    });
-
-    // PRODUCTION WEBHOOK INTEGRATION
-    let webhookSuccess = false;
-    const webhookUrl = process.env.REACT_APP_ZAPIER_WEBHOOK_URL;
-
-    if (webhookUrl) {
-      try {
-        console.log('📤 Sending lead to webhook...', leadData.id);
-        console.log('📋 Full lead data:', JSON.stringify(leadData, null, 2));
-
-        // If there's a design file, we'll send leadData without the file
-        // File will be emailed separately (handled by Zapier)
-        await fetch(webhookUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: JSON.stringify(leadData)
-        });
-
-        // With no-cors mode, we can't read the response, but if fetch didn't throw, it was sent
-        console.log('✅ Webhook request sent (no-cors mode)');
-        webhookSuccess = true;
-
-        // If user uploaded a file, trigger email with file attachment
-        if (formData.designFile) {
-          console.log('📧 File uploaded - Zapier will handle email notification');
-          // Note: File handling via email will be configured in Zapier
-          // The webhook already knows there's a file (hasDesignFile: true)
-        }
-
-      } catch (webhookError) {
-        console.error('❌ Webhook error:', webhookError);
-
-        // Track webhook error in Sentry with context
-        Sentry.captureException(webhookError, {
-          tags: {
-            errorType: 'webhook_failure',
-            component: 'quote_submission'
-          },
-          contexts: {
-            lead: {
-              leadId: leadData.id,
-              company: leadData.company,
-              estimatedTotal: leadData.estimatedTotal || 'Custom quote required'
-            }
-          }
-        });
-
-        // Don't block user - we'll save to localStorage as fallback
-        setSubmissionError('Unable to send quote request to our server. Your information has been saved locally and we\'ll follow up soon.');
-      }
-    } else {
-      console.warn('⚠️ No webhook URL configured - using localStorage only');
-    }
-
-    // ALWAYS save to localStorage as backup/fallback
     try {
-      const existingLeads = JSON.parse(localStorage.getItem('eddm-leads') || '[]');
-      existingLeads.push(leadData);
-      localStorage.setItem('eddm-leads', JSON.stringify(existingLeads));
-      console.log('💾 Lead saved to localStorage:', leadData.id);
-    } catch (storageError) {
-      console.error('❌ localStorage error:', storageError);
-      // If both webhook AND localStorage fail, show error
-      if (!webhookSuccess) {
-        setSubmissionError('Unable to save your quote request. Please try again or contact us directly.');
-        setSubmitting(false);
-        return;
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_key: '97be74ee-023e-4e70-8ae4-adf253eeefec',
+          subject: 'EDDM Quote Request from mailpro.org',
+          from_name: fullName,
+          name: fullName,
+          email: formData.email,
+          phone: formData.phone || 'Not provided',
+          company: formData.company || 'Not provided',
+          message: formData.message || 'No additional notes',
+          routes_selected: routeIds,
+          zip_codes: zipCodes,
+          total_addresses: pricing.addresses,
+          route_count: selectedRoutes.length
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShowQuoteForm(false);
+        setSubmissionError(null);
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          company: '',
+          message: ''
+        });
+        alert('Quote request received! We\'ll contact you within 2 business hours with a detailed proposal.');
+      } else {
+        setSubmissionError('Unable to send your request. Please try again or contact us directly at info@mailpro.org.');
       }
+    } catch (err) {
+      console.error('Form submission error:', err);
+      setSubmissionError('Unable to send your request. Please try again or contact us directly at info@mailpro.org.');
     }
 
     setSubmitting(false);
-
-    // Success! Show confirmation
-    if (webhookSuccess) {
-      if (pricing.belowMinimum) {
-        alert(`✅ Quote request received!\n\nYour selection (${pricing.addresses} addresses) requires a custom quote. We'll contact you within 2 business hours with pricing options.\n\nReference ID: ${leadData.id}`);
-      } else {
-        alert(`✅ Quote request received!\n\nWe'll contact you within 2 business hours with final pricing and a detailed proposal.\n\nReference ID: ${leadData.id}`);
-      }
-    } else {
-      alert(`✅ Quote request saved!\n\nYour information has been recorded. We'll contact you within 2 business hours with ${pricing.belowMinimum ? 'pricing options' : 'final pricing and a detailed proposal'}.\n\nReference ID: ${leadData.id}`);
-    }
-
-    // Reset form and close modal
-    setShowQuoteForm(false);
-    setSubmissionError(null);
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      company: '',
-      postcardSize: '6.25" x 9" (Standard)',
-      customSize: '',
-      paperStock: '100# Gloss Cover (Most Common)',
-      customStock: '',
-      printingOptions: 'Full Color Both Sides (most common)',
-      timeline: '',
-      goals: '',
-      designOption: 'need-design',
-      designFile: null
-    });
   };
 
   const pricing = selectedRoutes.length > 0 ? calculateTotal() : null;
@@ -1788,7 +1684,7 @@ function EDDMMapper() {
                 <span className="hero-badge-icon">⚡</span>
                 USPS EDDM® Certified Partner
               </div>
-              <h1>Plan Your Direct Mail Campaign</h1>
+              <h1>Plan Your EDDM Campaign</h1>
               <p className="hero-subtitle">
                 Target any neighborhood in America. See real-time carrier routes, demographic data, and instant pricing.
               </p>
@@ -2054,7 +1950,7 @@ function EDDMMapper() {
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '650px' }}
               center={mapCenter}
-              zoom={13}
+              zoom={mapZoom}
               options={{
                 mapTypeControl: false,
                 fullscreenControl: true,
@@ -2351,102 +2247,9 @@ function EDDMMapper() {
                         </div>
                       </div>
 
-                      {pricing.belowMinimum ? (
-                        <>
-                          {/* Below Minimum - Custom Quote Required */}
-                          <div className="estimate-below-minimum">
-                            <div className="below-minimum-icon">⚠️</div>
-                            <h3>Custom Quote Required</h3>
-                            <p>
-                              Your selection ({pricing.addresses.toLocaleString()} addresses) is below our 
-                              {pricing.minimumQuantity}-piece minimum for instant pricing.
-                            </p>
-                            <p className="below-minimum-cta">
-                              <strong>Next step:</strong> Submit your information below and we'll prepare 
-                              a custom quote within 24 hours.
-                            </p>
-                          </div>
-
-                          <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                            REQUEST CUSTOM QUOTE
-                          </button>
-
-                          <p className="estimate-fine-print">
-                            We'll provide competitive pricing options for your campaign size and reach out within 24 hours.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          {/* Above Minimum - Show Pricing */}
-                          <div className="estimate-total-display">
-                            <div className="estimate-label">Estimated Campaign Cost</div>
-                            <div className="estimate-total-amount">
-                              ${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                            </div>
-                            <div className="estimate-includes">
-                              Includes printing, postage & delivery
-                            </div>
-                          </div>
-
-                          {pricing.nextTier && pricing.addressesUntilNextDiscount > 0 && (
-                            <div className="estimate-incentive">
-                              💡 Add {pricing.addressesUntilNextDiscount.toLocaleString()} more addresses to unlock next pricing tier and save ${pricing.potentialSavings.toFixed(2)}
-                            </div>
-                          )}
-
-                          {/* Urgency & Trust Section */}
-                          <div className="conversion-trust-block">
-                            <div className="urgency-indicator">
-                              <span className="urgency-icon">🔥</span>
-                              <span className="urgency-text">Lock in this price - quotes valid for 7 days</span>
-                            </div>
-                            <div className="trust-badges-row">
-                              <span className="mini-trust-badge">✓ No upfront payment</span>
-                              <span className="mini-trust-badge">✓ Free design review</span>
-                            </div>
-                          </div>
-
-                          {/* Campaign Name Input */}
-                          <div className="campaign-name-input">
-                            <input
-                              type="text"
-                              value={campaignName}
-                              onChange={(e) => setCampaignName(e.target.value)}
-                              placeholder="Name your campaign (optional)"
-                              className="campaign-name-field"
-                            />
-                          </div>
-
-                          {/* Primary CTA */}
-                          <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
-                            🚀 REQUEST FREE QUOTE
-                          </button>
-
-                          {/* Secondary Actions Row */}
-                          <div className="estimate-actions-row">
-                            <button className="estimate-action-btn" onClick={() => setShowROICalculator(true)} title="See ROI">
-                              <span className="action-icon">💰</span>
-                              <span>ROI</span>
-                            </button>
-                            <button className="estimate-action-btn" onClick={() => setShowEmailModal(true)} title="Email Summary">
-                              <span className="action-icon">📧</span>
-                              <span>Email</span>
-                            </button>
-                            <button className="estimate-action-btn" onClick={generateShareLink} title="Share Campaign">
-                              <span className="action-icon">🔗</span>
-                              <span>Share</span>
-                            </button>
-                            <button className="estimate-action-btn" onClick={generatePDF} disabled={pdfGenerating} title="Download PDF">
-                              <span className="action-icon">{pdfGenerating ? '⏳' : '📄'}</span>
-                              <span>{pdfGenerating ? '...' : 'PDF'}</span>
-                            </button>
-                          </div>
-
-                          <p className="estimate-fine-print">
-                            *This is an estimate only. Contact us for final pricing and custom options. Based on 6.25x9 postcard, 100# gloss cover, full color both sides.
-                          </p>
-                        </>
-                      )}
+                      <button className="estimate-cta" onClick={() => setShowQuoteForm(true)}>
+                        REQUEST FREE QUOTE
+                      </button>
                     </>
                   ) : (
                     <div className="estimate-empty">
@@ -2463,17 +2266,7 @@ function EDDMMapper() {
           {hasSelection && (
             <div className="mobile-estimate-bar">
               <div className="mobile-estimate-summary">
-                {pricing.belowMinimum ? (
-                  <>
-                    <div className="mobile-estimate-value">Custom Quote</div>
-                    <div className="mobile-estimate-label">Below {pricing.minimumQuantity} min • {pricing.addresses.toLocaleString()} addresses</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="mobile-estimate-value">~${pricing.total.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-                    <div className="mobile-estimate-label">Estimated • {selectedRoutes.length} routes, {pricing.addresses.toLocaleString()} addresses</div>
-                  </>
-                )}
+                <div className="mobile-estimate-label">{selectedRoutes.length} routes | {pricing.addresses.toLocaleString()} addresses</div>
               </div>
               <button className="mobile-estimate-btn" onClick={() => setShowQuoteForm(true)}>
                 Get Quote
@@ -2506,20 +2299,19 @@ function EDDMMapper() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowQuoteForm(false)}>×</button>
 
-            {/* Conversion header with urgency */}
             <div className="modal-conversion-header">
-              <span className="modal-badge">📬 FREE QUOTE</span>
-              <h2>You're One Step Away From Your Campaign</h2>
-              <p>Complete the form below and we'll contact you within <strong>2 business hours</strong> with final pricing and a detailed proposal customized for your campaign.</p>
-              <div className="modal-guarantees">
-                <span className="modal-guarantee">✓ No obligation</span>
-                <span className="modal-guarantee">✓ No payment required</span>
-                <span className="modal-guarantee">✓ Free design consultation</span>
-              </div>
+              <h2>Request a Free Quote</h2>
+              <p>Complete the form below and we'll contact you within <strong>2 business hours</strong> with a detailed proposal.</p>
             </div>
 
             <form onSubmit={handleSubmitQuote}>
-              <h3 className="form-section-title">Contact Information</h3>
+              {pricing && (
+                <div className="quote-summary">
+                  <h4>Your Campaign Selection:</h4>
+                  <p><strong>{selectedRoutes.length}</strong> route(s) | <strong>{pricing.addresses.toLocaleString()}</strong> addresses</p>
+                  <p>ZIP codes: {[...new Set(routes.filter(r => selectedRoutes.includes(r.id)).map(r => r.zipCode))].join(', ')}</p>
+                </div>
+              )}
 
               <div className="form-row-group">
                 <div className="form-row half">
@@ -2555,11 +2347,10 @@ function EDDMMapper() {
               <div className="form-row">
                 <input
                   type="tel"
-                  placeholder="Phone Number * (XXX) XXX-XXXX"
+                  placeholder="Phone Number (optional) (XXX) XXX-XXXX"
                   value={formData.phone}
                   onChange={handlePhoneChange}
                   maxLength="14"
-                  required
                 />
               </div>
 
@@ -2572,183 +2363,15 @@ function EDDMMapper() {
                 />
               </div>
 
-              <h3 className="form-section-title">Project Specifications</h3>
-
               <div className="form-row">
-                <label className="form-label">Postcard Size *</label>
-                <select
-                  value={formData.postcardSize}
-                  onChange={(e) => setFormData({...formData, postcardSize: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="6.25&quot; x 9&quot; (Standard)">6.25" x 9" (Standard)</option>
-                  <option value="6&quot; x 11&quot;">6" x 11"</option>
-                  <option value="8.5&quot; x 11&quot;">8.5" x 11"</option>
-                  <option value="Custom Size">Custom Size</option>
-                </select>
-                {formData.postcardSize === 'Custom Size' && (
-                  <input
-                    type="text"
-                    placeholder='Enter dimensions (e.g., 5.5" x 8.5")'
-                    value={formData.customSize}
-                    onChange={(e) => setFormData({...formData, customSize: e.target.value})}
-                    className="form-input-sub"
-                    required
-                  />
-                )}
-              </div>
-
-              <div className="form-row">
-                <label className="form-label">Paper Stock *</label>
-                <select
-                  value={formData.paperStock}
-                  onChange={(e) => setFormData({...formData, paperStock: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="100# Gloss Cover (Most Common)">100# Gloss Cover (Most Common)</option>
-                  <option value="14pt Cardstock">14pt Cardstock</option>
-                  <option value="16pt Cardstock">16pt Cardstock</option>
-                  <option value="Custom Stock">Custom Stock</option>
-                </select>
-                {formData.paperStock === 'Custom Stock' && (
-                  <input
-                    type="text"
-                    placeholder="Specify paper stock"
-                    value={formData.customStock}
-                    onChange={(e) => setFormData({...formData, customStock: e.target.value})}
-                    className="form-input-sub"
-                    required
-                  />
-                )}
-              </div>
-
-              <div className="form-row">
-                <label className="form-label">Printing Options *</label>
-                <select
-                  value={formData.printingOptions}
-                  onChange={(e) => setFormData({...formData, printingOptions: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="Full Color Both Sides (most common)">Full Color Both Sides (most common)</option>
-                  <option value="Full Color Front, Black & White Back">Full Color Front, Black & White Back</option>
-                  <option value="Full Color Front, Blank Back">Full Color Front, Blank Back</option>
-                  <option value="Black & White Both Sides">Black & White Both Sides</option>
-                  <option value="Black & White Front, Blank Back">Black & White Front, Blank Back</option>
-                </select>
-              </div>
-
-              <h3 className="form-section-title">Design & Artwork</h3>
-
-              <div className="form-row">
-                <label className="form-label">Do you need design services? *</label>
-                <div className="design-options-radio">
-                  <label className="radio-option">
-                    <input 
-                      type="radio" 
-                      name="designOption"
-                      value="need-design" 
-                      checked={formData.designOption === 'need-design'}
-                      onChange={(e) => setFormData({...formData, designOption: e.target.value, designFile: null})}
-                    />
-                    <span className="radio-label">
-                      <strong>I need design services</strong>
-                      <small>Professional design based on complexity, pricing as low as $50</small>
-                    </span>
-                  </label>
-                  <label className="radio-option">
-                    <input 
-                      type="radio" 
-                      name="designOption"
-                      value="have-design" 
-                      checked={formData.designOption === 'have-design'}
-                      onChange={(e) => setFormData({...formData, designOption: e.target.value})}
-                    />
-                    <span className="radio-label">
-                      <strong>I have print-ready files</strong>
-                      <small>Upload your design below (optional now, can email later)</small>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              
-              {formData.designOption === 'have-design' && (
-                <div className="form-row file-upload-section">
-                  <label className="form-label">Upload Your Design (Optional)</label>
-                  <input 
-                    type="file" 
-                    accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.eps"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      setFormData({...formData, designFile: file});
-                    }}
-                    className="file-input"
-                  />
-                  {formData.designFile && (
-                    <div className="file-selected">
-                      ✓ {formData.designFile.name} ({(formData.designFile.size / 1024 / 1024).toFixed(2)} MB)
-                    </div>
-                  )}
-                  <p className="upload-hint">
-                    Accepted formats: PDF, JPG, PNG, AI, PSD, EPS • Max 25MB<br/>
-                    <em>Can't upload now? No problem - just indicate you have files and email them after submitting.</em>
-                  </p>
-                </div>
-              )}
-
-              <div className="form-row">
-                <label className="form-label">Timeline *</label>
-                <select
-                  value={formData.timeline}
-                  onChange={(e) => setFormData({...formData, timeline: e.target.value})}
-                  className="form-select"
-                  required
-                >
-                  <option value="">Select timeline</option>
-                  <option value="This month">This month</option>
-                  <option value="1-2 months">1-2 months</option>
-                  <option value="3+ months">3+ months</option>
-                  <option value="Just exploring options">Just exploring options</option>
-                </select>
-              </div>
-
-              <div className="form-row">
-                <label className="form-label">Campaign Goal (Optional)</label>
                 <textarea
-                  placeholder="What are you trying to accomplish? (e.g., Generate leads for financial planning services)"
-                  value={formData.goals}
-                  onChange={(e) => setFormData({...formData, goals: e.target.value})}
+                  placeholder="Message / Notes (optional)"
+                  value={formData.message}
+                  onChange={(e) => setFormData({...formData, message: e.target.value})}
                   rows="3"
                   maxLength="500"
                 ></textarea>
-                <div className="char-count">{formData.goals.length}/500</div>
               </div>
-
-              {pricing && (
-                <div className="quote-summary">
-                  <h4>Your Campaign Selection:</h4>
-                  <p><strong>{selectedRoutes.length}</strong> route(s) selected</p>
-                  <p><strong>{pricing.addresses.toLocaleString()}</strong> {audienceLabel[deliveryType]}</p>
-                  {pricing.belowMinimum ? (
-                    <>
-                      <p className="below-minimum-notice">
-                        ⚠️ Below {pricing.minimumQuantity}-piece minimum - custom pricing required
-                      </p>
-                      <p style={{fontSize: '12px', color: '#666', marginTop: '4px'}}>
-                        We'll provide competitive pricing options and reach out within 24 hours
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>{pricing.currentTier}</p>
-                      <p className="estimate">Estimated Cost: ${pricing.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                      <p style={{fontSize: '12px', color: '#999', marginTop: '4px'}}>Final pricing will be provided in your quote</p>
-                    </>
-                  )}
-                </div>
-              )}
 
               {submissionError && (
                 <div className="error-message" style={{marginBottom: '16px'}}>
