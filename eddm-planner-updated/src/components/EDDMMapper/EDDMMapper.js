@@ -1673,7 +1673,26 @@ function EDDMMapper() {
                   </button>
                 )}
               </div>
-            <div id="map-capture-container">
+            <div id="map-capture-container" style={{ position: 'relative' }}>
+            {loading && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(15, 23, 42, 0.85)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+                borderRadius: '12px'
+              }}>
+                <div className="loading-spinner" style={{ width: 40, height: 40, borderWidth: 3, marginBottom: 16 }}></div>
+                <div style={{ color: '#fff', fontSize: 16, fontWeight: 600 }}>Loading carrier routes...</div>
+              </div>
+            )}
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '650px' }}
               center={mapCenter}
