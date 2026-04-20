@@ -206,6 +206,248 @@
   left: 100%;
 }
 
+/* ===========================================================
+   Header right cluster: phone + divider + CTA as one unit
+   =========================================================== */
+.mpa-header-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.mpa-header-divider {
+  width: 1px;
+  height: 26px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 25%,
+    rgba(255, 255, 255, 0.18) 75%,
+    transparent 100%
+  );
+  flex-shrink: 0;
+}
+
+/* ---- Phone: editorial two-line treatment with live pulse ---- */
+.mpa-header-phone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 2px;
+  color: rgba(255, 255, 255, 0.88);
+  text-decoration: none;
+  font-family: 'Sora', sans-serif;
+  transition: color var(--transition-base);
+  white-space: nowrap;
+}
+
+.mpa-header-phone:hover {
+  color: #fff;
+}
+
+.mpa-header-phone:hover .phone-svg {
+  transform: rotate(-10deg) scale(1.05);
+  color: var(--mpa-red);
+}
+
+.phone-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.mpa-header-phone:hover .phone-icon-wrap {
+  background: rgba(214, 64, 69, 0.1);
+  border-color: rgba(214, 64, 69, 0.35);
+}
+
+.phone-svg {
+  transition: transform 0.3s cubic-bezier(.22, 1.4, .36, 1), color var(--transition-base);
+  color: inherit;
+}
+
+.phone-pulse {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 2px rgba(10, 22, 40, 1);
+  animation: phone-live-pulse 2.4s ease-out infinite;
+}
+
+@keyframes phone-live-pulse {
+  0% { box-shadow: 0 0 0 2px rgba(10, 22, 40, 1), 0 0 0 0 rgba(74, 222, 128, 0.55); }
+  70% { box-shadow: 0 0 0 2px rgba(10, 22, 40, 1), 0 0 0 9px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 2px rgba(10, 22, 40, 1), 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+.phone-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  line-height: 1;
+}
+
+.phone-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color var(--transition-base);
+}
+
+.mpa-header-phone:hover .phone-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.phone-number {
+  font-family: 'Sora', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: inherit;
+}
+
+/* Mobile: phone collapses to icon-only pill, 44px hit target */
+@media (max-width: 768px) {
+  .mpa-header-right { gap: 10px; }
+  .mpa-header-divider { display: none; }
+  .phone-stack { display: none; }
+  .mpa-header-phone { padding: 0; }
+  .phone-icon-wrap {
+    width: 44px;
+    height: 44px;
+  }
+  .phone-svg { width: 18px; height: 18px; }
+}
+
+/* ===========================================================
+   Hero credentials: refined editorial strip with hairline dividers
+   =========================================================== */
+.hero-credentials {
+  margin: 24px 0 0 0;
+  padding: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  max-width: 100%;
+}
+
+.hero-cred {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 18px;
+  font-family: 'Sora', sans-serif;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(245, 242, 235, 0.82);
+  white-space: nowrap;
+  transition: color 0.3s ease;
+  /* Stagger reveal */
+  opacity: 0;
+  transform: translateY(6px);
+  animation: hero-cred-reveal 0.7s cubic-bezier(.22, 1.4, .36, 1) forwards;
+}
+
+.hero-cred:hover { color: rgba(245, 242, 235, 1); }
+
+.hero-cred:nth-child(1) { animation-delay: 0.4s; }
+.hero-cred:nth-child(2) { animation-delay: 0.52s; }
+.hero-cred:nth-child(3) { animation-delay: 0.64s; }
+.hero-cred:nth-child(4) { animation-delay: 0.76s; }
+.hero-cred:nth-child(5) { animation-delay: 0.88s; }
+
+@keyframes hero-cred-reveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hairline vertical divider between items */
+.hero-cred + .hero-cred::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 14px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 30%,
+    rgba(255, 255, 255, 0.22) 70%,
+    transparent 100%
+  );
+}
+
+.hero-cred .cred-icon {
+  flex-shrink: 0;
+  color: rgba(214, 64, 69, 0.9);
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.hero-cred:hover .cred-icon {
+  color: var(--mpa-red);
+  transform: scale(1.08);
+}
+
+/* Tablet: tighten spacing */
+@media (max-width: 900px) {
+  .hero-cred { font-size: 11px; padding: 6px 14px; letter-spacing: 0.08em; }
+}
+
+/* Mobile: switch from hairline strip to discrete chip pills for clean wrap */
+@media (max-width: 640px) {
+  .hero-credentials {
+    margin-top: 20px;
+    padding: 0 16px;
+    gap: 6px 0;
+  }
+  .hero-cred {
+    font-size: 10.5px;
+    padding: 5px 11px;
+    letter-spacing: 0.07em;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-full);
+    margin: 0 3px;
+  }
+  .hero-cred + .hero-cred::before { display: none; }
+  .hero-cred .cred-icon { width: 11px; height: 11px; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .hero-cred {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .phone-pulse { animation: none; }
+  .mpa-header-phone:hover .phone-svg { transform: none; }
+}
+
 /* Live Campaign Counter - Social Proof */
 .live-campaign-counter {
   display: flex;

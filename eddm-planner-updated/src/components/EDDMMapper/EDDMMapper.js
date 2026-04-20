@@ -1392,10 +1392,25 @@ function EDDMMapper() {
             <div className="mpa-header-logo">MPA</div>
           </div>
 
-          <button className="mpa-header-contact" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
-            <span className="contact-icon">🎯</span>
-            Need a Targeted Campaign?
-          </button>
+          <div className="mpa-header-right">
+            <a href="tel:+18636876945" className="mpa-header-phone" aria-label="Call MPA at (863) 687-6945">
+              <span className="phone-icon-wrap" aria-hidden="true">
+                <svg className="phone-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+                <span className="phone-pulse"></span>
+              </span>
+              <span className="phone-stack">
+                <span className="phone-label">Call MPA</span>
+                <span className="phone-number">(863) 687-6945</span>
+              </span>
+            </a>
+            <span className="mpa-header-divider" aria-hidden="true"></span>
+            <button className="mpa-header-contact" onClick={() => window.location.href = 'https://www.mailpro.org/request-a-quote'}>
+              <span className="contact-icon">🎯</span>
+              Need a Targeted Campaign?
+            </button>
+          </div>
         </header>
 
         {/* Content wrapper - pushes below fixed header */}
@@ -1415,6 +1430,42 @@ function EDDMMapper() {
               <p className="hero-subtitle">
                 Target any neighborhood in America. See real-time carrier routes, demographic data, and instant pricing.
               </p>
+              <div className="hero-credentials" role="list" aria-label="Company credentials">
+                <span className="hero-cred" role="listitem">
+                  <svg className="cred-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  <span>Lakeland, FL</span>
+                </span>
+                <span className="hero-cred" role="listitem">
+                  <svg className="cred-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 7v5l3 2"/>
+                  </svg>
+                  <span>Since 1989</span>
+                </span>
+                <span className="hero-cred" role="listitem">
+                  <svg className="cred-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 2 14.39 8.26 21 9l-5 4.87L17.18 21 12 17.77 6.82 21 8 13.87 3 9l6.61-.74L12 2Z"/>
+                  </svg>
+                  <span>Veteran-Owned</span>
+                </span>
+                <span className="hero-cred" role="listitem">
+                  <svg className="cred-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="4" y="11" width="16" height="10" rx="2"/>
+                    <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                  </svg>
+                  <span>SOC 2 Type II</span>
+                </span>
+                <span className="hero-cred" role="listitem">
+                  <svg className="cred-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3 4 6v6c0 5.25 3.5 9.25 8 10 4.5-.75 8-4.75 8-10V6l-8-3Z"/>
+                    <path d="M12 10v5M9.5 12.5h5"/>
+                  </svg>
+                  <span>HIPAA Compliant</span>
+                </span>
+              </div>
 
               {/* Trust Indicators */}
               <div className="trust-indicators">
