@@ -8,5 +8,13 @@
       "source": "/.netlify/functions/eddm-routes",
       "destination": "/api/eddm-routes"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "eddm.mailpro.org" }],
+      "destination": "https://www.mailpro.org/eddm/$1",
+      "permanent": true
+    }
   ]
 }
