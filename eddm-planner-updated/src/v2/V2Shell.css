@@ -1,0 +1,75 @@
+.v2-root {
+  min-height: 100vh;
+  background: var(--mpa-v2-cream);
+  color: var(--mpa-v2-ink);
+  font-family: var(--mpa-v2-font-sans);
+  display: grid;
+  grid-template-rows: 60px 1fr;
+}
+
+.v2-header {
+  height: 60px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--mpa-v2-line);
+  background: var(--mpa-v2-cream);
+}
+
+.v2-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.v2-logo {
+  width: 24px;
+  height: 24px;
+  background: var(--mpa-v2-red);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 11px;
+}
+
+.v2-brand-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.v2-stepnav {
+  display: flex;
+  gap: 26px;
+}
+
+.v2-step {
+  font-size: 12.5px;
+  color: var(--mpa-v2-ink-soft);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.v2-step-active {
+  font-weight: 600;
+  color: var(--mpa-v2-ink);
+  border-bottom-color: var(--mpa-v2-red);
+}
+
+.v2-help {
+  font-size: 12px;
+  color: var(--mpa-v2-slate);
+}
+
+.v2-help a {
+  color: var(--mpa-v2-ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.v2-main {
+  overflow: auto;
+}
