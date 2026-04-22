@@ -8,9 +8,14 @@ import useCountUp from '../primitives/useCountUp';
 import fmtN from '../primitives/fmtN';
 import useRoutes from '../hooks/useRoutes';
 import MapPane from '../components/MapPane';
-import ZipSearchBar from '../components/ZipSearchBar';
+// ZipSearchBar superseded by SearchTabs in Phase 5.1 — import retained only
+// for reference; no longer rendered.
+// import ZipSearchBar from '../components/ZipSearchBar';
+import SearchTabs from '../components/SearchTabs';
 import StatePill from '../components/StatePill';
-import ModeSwitcher from '../components/ModeSwitcher';
+// ModeSwitcher superseded by SearchTabs "By address + radius" tab in
+// Phase 5.1 — no longer rendered. Component file retained for future revival.
+// import ModeSwitcher from '../components/ModeSwitcher';
 import SavePlanPopover from '../components/SavePlanPopover';
 import Step1ErrorBanner from '../components/Step1ErrorBanner';
 import Step1LoadingOverlay from '../components/Step1LoadingOverlay';
@@ -33,8 +38,11 @@ export default function Step1Plan() {
 
   // UI-only state (not persisted).
   const [savePopover, setSavePopover] = useState(false);
+  // MapPane uses `mode` to decide whether to render the Circle / DrawingManager.
+  // In Phase 5.1 the bottom-left ModeSwitcher is gone — `mode` flips to 'radius'
+  // programmatically when the "By address + radius" tab submits.
   const [mode, setMode] = useState('click');
-  const [radius, setRadius] = useState(1);
+  const [radius, setRadius] = useState(3);
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(12);
   const [circleCenter, setCircleCenter] = useState(null);
@@ -115,11 +123,63 @@ export default function Step1Plan() {
     }
   };
 
-  const handleCenterChange = ({ lat, lng }) => {
-    setMapCenter({ lat, lng });
-    setMapZoom(13);
-    setCircleCenter({ lat, lng });
-  };
+  // Phase 5.1 — "By address + radius" tab submit.
+  //
+  // Flow:
+  //   1. Recenter map on the geocoded address.
+  //   2. Set the Circle center + radius so MapPane renders it.
+  //   3. Flip mode → 'radius' so MapPane's autoSelectRadius effect fires.
+  //   4. Fetch routes for the address's ZIP (so there's something to select
+  //      against). Route selection itself happens inside MapPane via
+  //      onRoutesAutoSelected → handleRoutesAutoSelected.
+  //   5. Persist {searchMode, radiusSearch} so Review can say "targeting
+  //      3 miles around 430 N Washington Ave" instead of a bare ZIP list.
+  const handleRadiusSearch = useCallback(
+    ({ center, radius: nextRadius, label, zip }) => {
+      if (!center) return;
+      setMapCenter(center);
+      setMapZoom(13);
+      setCircleCenter(center);
+      setRadius(nextRadius);
+      setMode('radius');
+      if (zip && !state.zips.includes(zip)) {
+        fetchZip(zip).then((result) => {
+          if (result && result.ok) {
+            update({
+              zips: [...state.zips, zip],
+              searchMode: 'radius',
+              radiusSearch: { center, radius: nextRadius, label, zip },
+            });
+          } else {
+            update({
+              searchMode: 'radius',
+              radiusSearch: { center, radius: nextRadius, label, zip },
+            });
+          }
+        });
+      } else {
+        update({
+          searchMode: 'radius',
+          radiusSearch: { center, radius: nextRadius, label, zip: zip || null },
+        });
+      }
+    },
+    [state.zips, fetchZip, update]
+  );
+
+  // Phase 5.1 — switching tabs clears the radius overlay (so a ZIP search
+  // can proceed cleanly) and flips MapPane back to click mode.
+  const handleSearchModeChange = useCallback(
+    (nextMode) => {
+      if (nextMode === 'zip') {
+        setMode('click');
+        update({ searchMode: 'zip' });
+      } else {
+        update({ searchMode: 'radius' });
+      }
+    },
+    [update]
+  );
 
   const handleRemoveZip = (zip) => {
     removeZipRoutes(zip);
@@ -228,13 +288,15 @@ export default function Step1Plan() {
           overlays={
             <>
               <div className="step1-zip-overlay">
-                <ZipSearchBar
+                <SearchTabs
+                  mode={state.searchMode || 'zip'}
+                  onModeChange={handleSearchModeChange}
                   onZipChange={handleZipChange}
-                  onCenterChange={handleCenterChange}
+                  onRadiusSearch={handleRadiusSearch}
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
                 />
-                {state.zips.length > 0 && (
+                {((state.searchMode || 'zip') === 'zip') && (state.zips.length > 0) && (
                   <div className="step1-zip-chips">
                     {state.zips.map((zip) => (
                       <span key={zip} className="step1-zip-chip">
@@ -252,7 +314,9 @@ export default function Step1Plan() {
                       type="button"
                       className="step1-add-zip"
                       onClick={() => {
-                        const input = document.querySelector('.v2-zip-search input');
+                        const input = document.querySelector(
+                          '.v2-search-input-box input'
+                        );
                         if (input) input.focus();
                       }}
                     >
@@ -266,14 +330,7 @@ export default function Step1Plan() {
                 <StatePill count={totals.count} hh={totals.hh} />
               </div>
 
-              <div className="step1-mode-overlay">
-                <ModeSwitcher
-                  mode={mode}
-                  onChange={setMode}
-                  radius={radius}
-                  onRadiusChange={setRadius}
-                />
-              </div>
+              {/* Phase 5.1: ModeSwitcher no longer rendered. See SearchTabs. */}
 
               {showZipChangeLoading && (
                 <Step1LoadingOverlay variant="zip-change" />

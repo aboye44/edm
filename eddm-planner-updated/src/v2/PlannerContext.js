@@ -8,6 +8,10 @@ const defaultState = {
   deliveryFilter: 'residential', // 'residential' | 'all'
   selected: [],                // array of route IDs (Set would be nicer but localStorage needs array)
   totalHH: 0,                  // cached household count from selected routes (written by Step 1)
+  searchMode: 'zip',           // 'zip' | 'radius' — Step 1 intent tabs (Phase 5.1)
+  radiusSearch: null,          // { center: {lat,lng}, radius: number, label: string } | null
+                               // — persisted when searchMode === 'radius' so Review can
+                               //   display "targeting 3 miles around {address}"
   // Step 2 — Design
   size: null,                  // '6.25x9' | '6.25x11' | '8.5x11' | 'custom'
   customSize: { w: '', h: '', note: '' },
