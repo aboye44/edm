@@ -76,8 +76,8 @@ function isPointInPolygonSimple(point, polygon) {
     const xj = polygon[j].lat;
     const yj = polygon[j].lng;
     if (
-      yi > y !== yj > y &&
-      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
+      ((yi > y) !== (yj > y)) &&
+      (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
     ) {
       inside = !inside;
     }
