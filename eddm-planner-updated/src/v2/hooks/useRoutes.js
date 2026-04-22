@@ -1,4 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  CENSUS_API_KEY,
+  CENSUS_ACS_BASE,
+  CENSUS_VARS,
+} from '../../config/census';
+
+/**
+ * Module-level cache: ZIP → median HH income (number | null).
+ * Census ACS data updates annually, so caching for the session is safe.
+ * Cache persists across component remounts.
+ */
+const censusIncomeCache = new Map();
+
+async function fetchCensusIncome(zip) {
+  if (!zip || !/^\d{5}$/.test(zip)) return null;
+  if (censusIncomeCache.has(zip)) return censusIncomeCache.get(zip);
+  try {
+    const vars = `NAME,${CENSUS_VARS.MEDIAN_INCOME}`;
+    const url = `${CENSUS_ACS_BASE}?get=${vars}&for=zip%20code%20tabulation%20area:${zip}&key=${CENSUS_API_KEY}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      censusIncomeCache.set(zip, null);
+      return null;
+    }
+    const data = await resp.json();
+    // Row 0 is headers, row 1 is the data row: [name, income, zipFromApi]
+    const row = Array.isArray(data) && data.length > 1 ? data[1] : null;
+    if (!row) {
+      censusIncomeCache.set(zip, null);
+      return null;
+    }
+    const raw = parseInt(row[1], 10);
+    // Census returns negative sentinels for "data suppressed" — treat as null.
+    const value = Number.isFinite(raw) && raw > 0 ? raw : null;
+    censusIncomeCache.set(zip, value);
+    return value;
+  } catch (_) {
+    censusIncomeCache.set(zip, null);
+    return null;
+  }
+}
 
 /**
  * Fetch EDDM carrier routes for one or more ZIP codes via MPA's existing
@@ -149,6 +190,19 @@ export default function useRoutes(initialZips = null) {
       }
 
       const transformed = features.map((f, i) => transformFeature(f, zip, i));
+
+      // USPS doesn't return income — enrich with ZIP-level median HH
+      // income from the US Census ACS API. Every route in the same ZIP
+      // gets the same number (ZIP-level precision is the norm for
+      // EDDM targeting anyway). Failures are non-fatal: we just leave
+      // income = null and the UI displays "—".
+      const censusIncome = await fetchCensusIncome(zip);
+      if (censusIncome) {
+        transformed.forEach((r) => {
+          if (!r.income) r.income = censusIncome;
+        });
+      }
+
       setRoutes((prev) => {
         const filtered = prev.filter((r) => r.zip !== zip);
         return [...filtered, ...transformed];
