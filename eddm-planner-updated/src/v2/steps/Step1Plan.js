@@ -167,6 +167,23 @@ export default function Step1Plan() {
     [state.zips, fetchZip, update]
   );
 
+  // Phase 5.1 fix — radius dropdown change handler. Lifts controlled
+  // radius state to this component so MapPane's autoSelectRadius effect
+  // (which depends on `radius`) fires instantly on change — no need
+  // to re-submit SEARCH. Also updates the persisted radiusSearch in
+  // context so Review reflects the latest radius.
+  const handleRadiusChange = useCallback(
+    (nextRadius) => {
+      setRadius(nextRadius);
+      if (state.radiusSearch) {
+        update({
+          radiusSearch: { ...state.radiusSearch, radius: nextRadius },
+        });
+      }
+    },
+    [state.radiusSearch, update]
+  );
+
   // Phase 5.1 — switching tabs clears the radius overlay (so a ZIP search
   // can proceed cleanly) and flips MapPane back to click mode.
   const handleSearchModeChange = useCallback(
@@ -293,6 +310,8 @@ export default function Step1Plan() {
                   onModeChange={handleSearchModeChange}
                   onZipChange={handleZipChange}
                   onRadiusSearch={handleRadiusSearch}
+                  radius={radius}
+                  onRadiusChange={handleRadiusChange}
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
                 />

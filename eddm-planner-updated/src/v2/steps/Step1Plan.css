@@ -103,6 +103,7 @@
   border: 1px solid var(--mpa-v2-line);
   box-shadow: var(--mpa-v2-shadow-map-overlay-lg);
   min-width: 460px;
+  max-width: 560px;
   pointer-events: auto;
 }
 
@@ -136,17 +137,28 @@
   padding: 10px 14px;
 }
 
+/* Single unified input group — address, radius, button read as ONE
+   control, not three detached boxes. No internal gap; 1px slate
+   dividers between segments. */
 .v2-search-input-box {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 8px 8px 10px;
+  align-items: stretch;
+  padding: 0;
   background: var(--mpa-v2-white);
   border: 1px solid var(--mpa-v2-line);
+  overflow: hidden;
 }
 
 .v2-search-input-box[data-error='true'] {
   border-color: var(--mpa-v2-red);
+}
+
+/* Leading search icon sits inside the input region, not as a
+   separate segment. Vertical padding matches the input so everything
+   aligns. */
+.v2-search-input-box > svg:first-child {
+  align-self: center;
+  margin: 0 8px 0 12px;
 }
 
 .v2-search-input-box input {
@@ -154,35 +166,49 @@
   border: none;
   outline: none;
   background: transparent;
+  padding: 10px 12px 10px 0;
   font-family: var(--mpa-v2-font-sans);
   font-size: 13px;
   color: var(--mpa-v2-ink);
   min-width: 0;
 }
 
+/* Autocomplete wrapper Google injects — force the child input to fill
+   the flex space without adding its own box model. */
+.v2-search-input-box .pac-target-input {
+  padding: 10px 12px 10px 0;
+}
+
 .v2-search-radius-select {
-  border: 1px solid var(--mpa-v2-line);
+  border: none;
+  border-left: 1px solid var(--mpa-v2-line);
   background: var(--mpa-v2-white);
-  padding: 6px 8px;
+  padding: 0 24px 0 12px;
   font-family: var(--mpa-v2-font-sans);
   font-size: 12px;
-  color: var(--mpa-v2-slate);
+  font-weight: 500;
+  color: var(--mpa-v2-ink);
   outline: none;
   cursor: pointer;
   flex-shrink: 0;
   border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='none' stroke='%238A8170' stroke-width='1.5' d='M1 1l4 4 4-4'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
 .v2-search-radius-select:focus {
-  border-color: var(--mpa-v2-ink);
   color: var(--mpa-v2-ink);
+  background-color: var(--mpa-v2-paper-soft);
 }
 
 .v2-search-submit-btn {
   background: var(--mpa-v2-ink);
   color: var(--mpa-v2-cream);
   border: none;
-  padding: 8px 14px;
+  padding: 0 18px;
   font-family: var(--mpa-v2-font-sans);
   font-size: 11px;
   font-weight: 700;

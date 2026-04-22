@@ -29,6 +29,12 @@ export default function SearchTabs({
   onModeChange,
   onZipChange,
   onRadiusSearch,
+  // Phase 5.1 fix: radius is now CONTROLLED by parent (Step1Plan) so
+  // changing the dropdown immediately propagates to MapPane's
+  // autoSelectRadius effect. Previously local state here meant dropdown
+  // changes only applied on the next SEARCH submit, which felt laggy.
+  radius = 3,
+  onRadiusChange,
   geocoding = false,
   showInvalid = false,
 }) {
@@ -38,7 +44,6 @@ export default function SearchTabs({
 
   // ── Radius tab state ──
   const [addressVal, setAddressVal] = useState('');
-  const [radius, setRadius] = useState(3);
   const autocompleteRef = useRef(null);
 
   const zipTrimmed = zipVal.trim();
@@ -252,7 +257,10 @@ export default function SearchTabs({
             <select
               className="v2-search-radius-select"
               value={radius}
-              onChange={(e) => setRadius(Number(e.target.value))}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (onRadiusChange) onRadiusChange(next);
+              }}
               aria-label="Radius in miles"
             >
               {RADIUS_OPTIONS.map((r) => (
