@@ -140,11 +140,17 @@
   opacity: 0.6;
 }
 
+/* Multi-ZIP cluster — contained white card so chips + add-link are
+   legible on any map background (tiles, parkland, water, etc). */
 .step1-zip-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--mpa-v2-white);
+  border: 1px solid var(--mpa-v2-line);
+  box-shadow: var(--mpa-v2-shadow-map-overlay-lg);
   max-width: 500px;
 }
 
@@ -153,13 +159,12 @@
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  background: var(--mpa-v2-white);
+  background: var(--mpa-v2-paper-soft);
   border: 1px solid var(--mpa-v2-line);
   font-family: var(--mpa-v2-font-mono);
   font-size: 11px;
   font-weight: 600;
   color: var(--mpa-v2-ink);
-  box-shadow: var(--mpa-v2-shadow-map-overlay-soft);
 }
 
 .step1-zip-chip button {
@@ -173,15 +178,29 @@
   font-family: inherit;
 }
 
+.step1-zip-chip button:hover {
+  color: var(--mpa-v2-ink);
+}
+
+/* Quiet tertiary add-link. Slate not red (red is reserved for the
+   primary CTA). Text-button style, no border, subtle underline on
+   hover so users know it's clickable. */
 .step1-add-zip {
   background: transparent;
-  border: 1px dashed var(--mpa-v2-line);
-  color: var(--mpa-v2-red);
+  border: none;
+  color: var(--mpa-v2-slate);
   font-family: var(--mpa-v2-font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 4px 6px;
   cursor: pointer;
+  transition: color 0.12s ease-out;
+}
+
+.step1-add-zip:hover {
+  color: var(--mpa-v2-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* State pill — top-right */
