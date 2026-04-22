@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   GoogleMap,
   LoadScript,
@@ -22,61 +22,253 @@ const MAP_OPTIONS = {
   streetViewControl: false,
   fullscreenControl: false,
   zoomControl: true,
-  zoomControlOptions: undefined, // let Google Maps render default zoom in bottom-right
+  zoomControlOptions: undefined,
   styles: [
     { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
     { featureType: 'transit', stylers: [{ visibility: 'off' }] },
   ],
 };
 
+// ─── Geometry helpers (ported from EDDMMapper.js, not modified there) ───
+
+// Great-circle distance in miles (Haversine).
+function calculateDistance(lat1, lng1, lat2, lng2) {
+  const R = 3959;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// True if any vertex of a route's multi-path is within `radiusMiles` of the
+// circle center, OR if the route's centroid is within 1.2× radius.
+function routeIntersectsRadius(route, circleLat, circleLng, radiusMiles) {
+  const paths = route.coordinates || [];
+  for (const path of paths) {
+    for (const point of path) {
+      const d = calculateDistance(circleLat, circleLng, point.lat, point.lng);
+      if (d <= radiusMiles) return true;
+    }
+  }
+  const centerDist = calculateDistance(
+    circleLat,
+    circleLng,
+    route.centerLat,
+    route.centerLng
+  );
+  return centerDist <= radiusMiles * 1.2;
+}
+
+// Ray-casting point-in-polygon. Polygon is an array of {lat, lng}.
+function isPointInPolygonSimple(point, polygon) {
+  if (!polygon || polygon.length < 3) return false;
+  let inside = false;
+  const x = point.lat;
+  const y = point.lng;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lat;
+    const yi = polygon[i].lng;
+    const xj = polygon[j].lat;
+    const yj = polygon[j].lng;
+    if (
+      yi > y !== yj > y &&
+      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 /**
  * V4R2 map pane.
  *
- * Wraps LoadScript + GoogleMap, renders one Polygon + Polyline per route,
- * and paints selected routes in red (`--mpa-v2-red`) while unselected routes
- * use the slate ink soft. Click any polygon to toggle selection.
+ * Phase 4 additions:
+ *   - Radius mode: dragging/resizing the Circle auto-selects all intersecting
+ *     routes. Uses routeIntersectsRadius ported from EDDMMapper.
+ *   - Draw mode: completing a polygon auto-selects routes whose centroid is
+ *     inside, then clears the polygon and exits drawing mode.
+ *   - Tile-load failure detection via LoadScript onError + GoogleMap
+ *     `tilesloaded` handler surfaced through onTilesFail.
  *
  * Props:
- *   routes    — array of { id, coordinates: path[][] }
- *   selected  — array of selected route ids
- *   onToggle  — (routeId) => void
- *   center    — { lat, lng } | null
- *   zoom      — number | null
- *   mode      — 'click' | 'draw' | 'radius'
- *   radius    — radius in miles when mode === 'radius' (for <Circle />)
- *   onPolygonDraw — optional handler for completed custom polygons
- *   onMapLoad     — optional (map) => void
- *   overlays      — optional React nodes rendered absolutely over the map
+ *   routes               — array of { id, coordinates, centerLat, centerLng, ... }
+ *   selected             — array of selected route ids
+ *   onToggle             — (routeId) => void
+ *   onRoutesAutoSelected — (ids[]) => void, called when radius or draw
+ *                           mode auto-adds routes. Caller decides whether
+ *                           to merge these into selected state.
+ *   center               — { lat, lng } | null
+ *   zoom                 — number | null
+ *   mode                 — 'click' | 'draw' | 'radius'
+ *   radius               — miles, when mode === 'radius'
+ *   circleCenter         — { lat, lng } | null, explicit radius center
+ *                           (falls back to `center` then DEFAULT_CENTER)
+ *   onCircleCenterChange — ({lat,lng}) => void, called when user drags circle
+ *   onMapLoad            — (map) => void
+ *   onTilesFail          — () => void
+ *   overlays             — React nodes rendered absolutely over the map
  */
 export default function MapPane({
   routes = [],
   selected = [],
   onToggle,
+  onRoutesAutoSelected,
   center,
   zoom,
   mode = 'click',
   radius = 1,
-  onPolygonDraw,
+  circleCenter,
+  onCircleCenterChange,
   onMapLoad,
+  onTilesFail,
   overlays,
 }) {
   const mapRef = useRef(null);
+  const circleRef = useRef(null);
   const [hovered, setHovered] = useState(null);
-
-  const handleLoad = (map) => {
-    mapRef.current = map;
-    if (onMapLoad) onMapLoad(map);
-  };
+  const tilesLoadedRef = useRef(false);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   const effectiveCenter = center || DEFAULT_CENTER;
   const effectiveZoom = zoom || DEFAULT_ZOOM;
+  const effectiveCircleCenter = circleCenter || center || DEFAULT_CENTER;
+
+  const handleMapLoad = (map) => {
+    mapRef.current = map;
+    tilesLoadedRef.current = false;
+    if (onMapLoad) onMapLoad(map);
+
+    // Fire tiles-fail if tiles never load within 12 seconds. The Google Maps
+    // JS API doesn't expose a reliable error event for tile failure, so we
+    // use a timeout + the `tilesloaded` event as a heuristic.
+    const timer = setTimeout(() => {
+      if (!tilesLoadedRef.current && onTilesFail) {
+        onTilesFail();
+      }
+    }, 12000);
+
+    const listener = map.addListener('tilesloaded', () => {
+      tilesLoadedRef.current = true;
+      clearTimeout(timer);
+    });
+
+    // Store cleanup on the map object itself so we can pull it off later if
+    // the map unmounts.
+    map.__v2_tile_watch = { timer, listener };
+  };
+
+  // ─── Radius mode: auto-select routes intersecting the circle ───
+  const autoSelectRadius = useCallback(
+    (centerLat, centerLng, radiusMiles) => {
+      if (!onRoutesAutoSelected) return;
+      const matched = [];
+      for (const r of routes) {
+        if (routeIntersectsRadius(r, centerLat, centerLng, radiusMiles)) {
+          if (!selectedSet.has(r.id)) matched.push(r.id);
+        }
+      }
+      if (matched.length > 0) {
+        onRoutesAutoSelected(matched);
+      }
+    },
+    [routes, selectedSet, onRoutesAutoSelected]
+  );
+
+  const handleCircleLoad = (circle) => {
+    circleRef.current = circle;
+  };
+
+  const handleCircleDragEnd = () => {
+    const c = circleRef.current;
+    if (!c) return;
+    try {
+      const newCenter = c.getCenter();
+      const lat = newCenter.lat();
+      const lng = newCenter.lng();
+      if (onCircleCenterChange) {
+        onCircleCenterChange({ lat, lng });
+      }
+      autoSelectRadius(lat, lng, radius);
+    } catch (_) {
+      // ignore
+    }
+  };
+
+  const handleCircleRadiusChange = () => {
+    const c = circleRef.current;
+    if (!c) return;
+    try {
+      const newCenter = c.getCenter();
+      autoSelectRadius(newCenter.lat(), newCenter.lng(), radius);
+    } catch (_) {
+      // ignore
+    }
+  };
+
+  // Whenever radius (miles) or circle center changes via props in radius
+  // mode, run the intersection pass.
+  useEffect(() => {
+    if (mode !== 'radius') return;
+    if (!effectiveCircleCenter) return;
+    autoSelectRadius(
+      effectiveCircleCenter.lat,
+      effectiveCircleCenter.lng,
+      radius
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, radius, effectiveCircleCenter?.lat, effectiveCircleCenter?.lng, routes.length]);
+
+  // ─── Draw mode: polygon complete → auto-select routes inside ───
+  const handlePolygonComplete = useCallback(
+    (polygon) => {
+      try {
+        const pathArr = polygon.getPath().getArray();
+        const polyPoints = pathArr.map((p) => ({
+          lat: p.lat(),
+          lng: p.lng(),
+        }));
+        if (polyPoints.length >= 3 && onRoutesAutoSelected) {
+          const matched = [];
+          for (const r of routes) {
+            const routeCenter = { lat: r.centerLat, lng: r.centerLng };
+            if (isPointInPolygonSimple(routeCenter, polyPoints)) {
+              if (!selectedSet.has(r.id)) matched.push(r.id);
+            }
+          }
+          if (matched.length > 0) onRoutesAutoSelected(matched);
+        }
+      } catch (_) {
+        // ignore
+      } finally {
+        // Clear the drawn polygon — selection is the persistent state,
+        // not the polygon outline.
+        if (polygon && typeof polygon.setMap === 'function') {
+          polygon.setMap(null);
+        }
+      }
+    },
+    [routes, selectedSet, onRoutesAutoSelected]
+  );
+
+  const drawingMode =
+    mode === 'draw' && typeof window !== 'undefined' && window.google?.maps?.drawing
+      ? window.google.maps.drawing.OverlayType.POLYGON
+      : null;
 
   return (
     <LoadScript
       googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ''}
       libraries={V2_MAP_LIBRARIES}
+      onError={() => {
+        if (onTilesFail) onTilesFail();
+      }}
     >
       <div className="v2-map-wrap">
         <GoogleMap
@@ -84,14 +276,12 @@ export default function MapPane({
           center={effectiveCenter}
           zoom={effectiveZoom}
           options={MAP_OPTIONS}
-          onLoad={handleLoad}
+          onLoad={handleMapLoad}
         >
-          {mode === 'draw' && onPolygonDraw && (
+          {mode === 'draw' && (
             <DrawingManager
-              drawingMode={
-                window.google?.maps?.drawing?.OverlayType?.POLYGON
-              }
-              onPolygonComplete={onPolygonDraw}
+              drawingMode={drawingMode}
+              onPolygonComplete={handlePolygonComplete}
               options={{
                 drawingControl: false,
                 polygonOptions: {
@@ -99,8 +289,8 @@ export default function MapPane({
                   fillOpacity: 0.15,
                   strokeColor: '#C03A3F',
                   strokeWeight: 2,
-                  editable: true,
-                  draggable: true,
+                  editable: false,
+                  draggable: false,
                 },
               }}
             />
@@ -108,7 +298,7 @@ export default function MapPane({
 
           {mode === 'radius' && (
             <Circle
-              center={effectiveCenter}
+              center={effectiveCircleCenter}
               radius={(radius || 1) * 1609.34}
               options={{
                 fillColor: '#C03A3F',
@@ -117,7 +307,13 @@ export default function MapPane({
                 strokeOpacity: 0.6,
                 strokeWeight: 2,
                 clickable: false,
+                editable: true,
+                draggable: true,
               }}
+              onLoad={handleCircleLoad}
+              onDragEnd={handleCircleDragEnd}
+              onRadiusChanged={handleCircleRadiusChange}
+              onCenterChanged={handleCircleDragEnd}
             />
           )}
 

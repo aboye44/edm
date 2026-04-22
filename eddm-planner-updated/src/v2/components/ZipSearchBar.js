@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { Autocomplete } from '@react-google-maps/api';
+import Step1LoadingOverlay from './Step1LoadingOverlay';
 
 /**
  * Floating ZIP search bar — sits absolutely-positioned top-center of the map.
@@ -6,27 +8,102 @@ import React, { useState } from 'react';
  * V4R2 styling: white background, 1px line border, 6px 24px box shadow,
  * zero border-radius. Search icon + text input + SEARCH button.
  *
- * Accepts 5-digit ZIPs. On submit, calls `onSubmit(zip)`. Does NOT use
- * Places Autocomplete — the production EDDM flow is ZIP-driven. A future
- * enhancement can swap this input for `<Autocomplete>` from
- * `@react-google-maps/api` once we want address → ZIP geocoding.
+ * Phase 4 upgrade:
+ *   - Wraps input in <Autocomplete> from @react-google-maps/api so users can
+ *     pick ZIPs, cities, or addresses. On place selection:
+ *     * Extracts postal_code → calls onZipChange(zip)
+ *     * Extracts geometry → calls onCenterChange({ lat, lng })
+ *   - Accepts pasted 5-digit ZIPs and submits them directly (bypasses
+ *     Autocomplete) so nothing regresses for keyboard users.
+ *   - Renders 'geocoding' loading indicator inline when `geocoding` prop true.
+ *   - Shows an inline invalid-zip hint when `showInvalid` prop is true.
  *
- * Validation is light (format check) — if the USPS fetch returns no routes
- * we surface the error via the standard error banner.
+ * Props:
+ *   onZipChange   — (zip: string) => void, called with a 5-digit ZIP
+ *   onCenterChange — ({ lat, lng }) => void, optional
+ *   onSubmit      — (zip: string) => void  [legacy alias for onZipChange]
+ *   geocoding     — boolean, show inline loading state
+ *   showInvalid   — boolean, show invalid-ZIP hint + red border
+ *   placeholder   — string
  */
-export default function ZipSearchBar({ onSubmit, placeholder = 'Enter ZIP code' }) {
+export default function ZipSearchBar({
+  onZipChange,
+  onCenterChange,
+  onSubmit,
+  geocoding = false,
+  showInvalid = false,
+  placeholder = 'Enter ZIP, city, or address',
+}) {
   const [val, setVal] = useState('');
   const [touched, setTouched] = useState(false);
+  const autocompleteRef = useRef(null);
 
   const trimmed = val.trim();
-  const valid = /^\d{5}$/.test(trimmed);
-  const showError = touched && trimmed.length > 0 && !valid;
+  // Detect if the trimmed value contains a 5-digit sequence — this lets us
+  // accept "33801" as well as "Lakeland, FL 33801".
+  const zipMatch = trimmed.match(/\b(\d{5})\b/);
+  const hasZipToken = Boolean(zipMatch);
+  const showError =
+    showInvalid || (touched && trimmed.length > 0 && !hasZipToken);
+
+  const dispatchZip = useCallback(
+    (zip) => {
+      if (onZipChange) onZipChange(zip);
+      if (onSubmit) onSubmit(zip);
+    },
+    [onZipChange, onSubmit]
+  );
+
+  const handleAutocompleteLoad = useCallback((ac) => {
+    autocompleteRef.current = ac;
+  }, []);
+
+  const handlePlaceChanged = useCallback(() => {
+    const ac = autocompleteRef.current;
+    if (!ac) return;
+    const place = ac.getPlace();
+    if (!place) return;
+
+    const components = place.address_components || [];
+    const zipComponent = components.find((c) =>
+      (c.types || []).includes('postal_code')
+    );
+    const zip = zipComponent?.long_name || null;
+
+    // Prefer place.geometry.location when available
+    let lat = null;
+    let lng = null;
+    if (place.geometry?.location) {
+      try {
+        lat = place.geometry.location.lat();
+        lng = place.geometry.location.lng();
+      } catch (_) {
+        lat = place.geometry.location.lat;
+        lng = place.geometry.location.lng;
+      }
+    }
+
+    if (lat != null && lng != null && onCenterChange) {
+      onCenterChange({ lat, lng });
+    }
+
+    if (zip && /^\d{5}$/.test(zip)) {
+      dispatchZip(zip);
+      setVal('');
+      setTouched(false);
+    } else if (place.formatted_address) {
+      // Autocomplete returned something without a ZIP (rare for '(regions)')
+      // — surface it so the user can refine.
+      setVal(place.formatted_address);
+      setTouched(true);
+    }
+  }, [dispatchZip, onCenterChange]);
 
   const submit = (e) => {
     if (e) e.preventDefault();
     setTouched(true);
-    if (valid && onSubmit) {
-      onSubmit(trimmed);
+    if (hasZipToken) {
+      dispatchZip(zipMatch[1]);
       setVal('');
       setTouched(false);
     }
@@ -36,7 +113,7 @@ export default function ZipSearchBar({ onSubmit, placeholder = 'Enter ZIP code' 
     <form
       onSubmit={submit}
       className="v2-zip-search"
-      aria-label="ZIP search"
+      aria-label="ZIP, city, or address search"
     >
       <div
         className="v2-zip-search-box"
@@ -57,20 +134,30 @@ export default function ZipSearchBar({ onSubmit, placeholder = 'Enter ZIP code' 
           <circle cx="11" cy="11" r="7" />
           <path d="M21 21l-4.35-4.35" />
         </svg>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={5}
-          value={val}
-          placeholder={placeholder}
-          onChange={(e) => setVal(e.target.value.replace(/[^\d]/g, ''))}
-          onBlur={() => setTouched(true)}
-          aria-label="ZIP code"
-          aria-invalid={showError}
-        />
+
+        <Autocomplete
+          onLoad={handleAutocompleteLoad}
+          onPlaceChanged={handlePlaceChanged}
+          options={{
+            types: ['(regions)'],
+            componentRestrictions: { country: 'us' },
+          }}
+        >
+          <input
+            type="text"
+            value={val}
+            placeholder={placeholder}
+            onChange={(e) => setVal(e.target.value)}
+            onBlur={() => setTouched(true)}
+            aria-label="ZIP code, city, or address"
+            aria-invalid={showError}
+          />
+        </Autocomplete>
+
+        {geocoding && <Step1LoadingOverlay variant="geocoding" />}
+
         <button type="submit" className="v2-zip-search-btn">
-          Search
+          {geocoding ? 'Searching...' : 'Search'}
         </button>
       </div>
       {showError && (

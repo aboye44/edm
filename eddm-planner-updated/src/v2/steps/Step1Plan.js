@@ -12,6 +12,8 @@ import ZipSearchBar from '../components/ZipSearchBar';
 import StatePill from '../components/StatePill';
 import ModeSwitcher from '../components/ModeSwitcher';
 import SavePlanPopover from '../components/SavePlanPopover';
+import Step1ErrorBanner from '../components/Step1ErrorBanner';
+import Step1LoadingOverlay from '../components/Step1LoadingOverlay';
 import './Step1Plan.css';
 
 // USPS EDDM retail flat rate 2026 — only shown when MPA_PRICING_VISIBLE is true.
@@ -35,12 +37,19 @@ export default function Step1Plan() {
   const [radius, setRadius] = useState(1);
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(12);
+  const [circleCenter, setCircleCenter] = useState(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [tilesFailed, setTilesFailed] = useState(false);
+  const [tilesFailDismissed, setTilesFailDismissed] = useState(false);
 
   // Sync fetched routes → auto-fetch any persisted ZIPs on mount once.
   useEffect(() => {
     if (state.zips && state.zips.length > 0) {
       state.zips.forEach((zip) => fetchZip(zip));
     }
+    // After first render, no longer "initial".
+    const t = setTimeout(() => setInitialLoad(false), 400);
+    return () => clearTimeout(t);
     // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -52,6 +61,10 @@ export default function Step1Plan() {
     if (last?.centerLat && last?.centerLng) {
       setMapCenter({ lat: last.centerLat, lng: last.centerLng });
       setMapZoom(13);
+      // Seed circle center on first route arrival if unset.
+      setCircleCenter((prev) =>
+        prev || { lat: last.centerLat, lng: last.centerLng }
+      );
     }
     // intentionally re-run only when the route count shifts, not on every
     // content change — otherwise the map would re-center on every toggle.
@@ -86,12 +99,18 @@ export default function Step1Plan() {
   const costAnim = useCountUp(Math.round(totals.cost), 400);
 
   // ── Handlers ────────────────────────────────────────────────────
-  const handleZipSubmit = async (zip) => {
+  const handleZipChange = async (zip) => {
     if (state.zips.includes(zip)) return;
     const result = await fetchZip(zip);
     if (result.ok) {
       update({ zips: [...state.zips, zip] });
     }
+  };
+
+  const handleCenterChange = ({ lat, lng }) => {
+    setMapCenter({ lat, lng });
+    setMapZoom(13);
+    setCircleCenter({ lat, lng });
   };
 
   const handleRemoveZip = (zip) => {
@@ -109,6 +128,21 @@ export default function Step1Plan() {
     update({ selected: next });
   };
 
+  const handleRoutesAutoSelected = useCallback(
+    (ids) => {
+      if (!ids || ids.length === 0) return;
+      const existing = new Set(state.selected);
+      const merged = [...state.selected];
+      for (const id of ids) {
+        if (!existing.has(id)) merged.push(id);
+      }
+      if (merged.length !== state.selected.length) {
+        update({ selected: merged });
+      }
+    },
+    [state.selected, update]
+  );
+
   const clearAll = () => update({ selected: [] });
 
   const clearAllZips = () => {
@@ -123,6 +157,27 @@ export default function Step1Plan() {
     navigate('/v2/design');
   };
 
+  const handleTilesFail = useCallback(() => {
+    setTilesFailed(true);
+  }, []);
+
+  const handleTilesRetry = () => {
+    setTilesFailed(false);
+    // Force a light reload of the map container by key.
+    setMapZoom((z) => z); // no-op; LoadScript handles retry internally
+    window.location.reload();
+  };
+
+  const handleTilesContinue = () => {
+    setTilesFailDismissed(true);
+  };
+
+  const handleErrorRetry = () => {
+    if (error && typeof error.retry === 'function') {
+      error.retry();
+    }
+  };
+
   // ── Location copy ────────────────────────────────────────────────
   const primaryZip = state.zips[0];
   const zipsSuffix =
@@ -135,6 +190,17 @@ export default function Step1Plan() {
   const availableCount = routes.length;
   const avgIncomeK = Math.round((totals.avgIncome || 0) / 1000);
 
+  // ── Classify errors for render routing ──────────────────────────
+  const sidebarError =
+    error && ['no-routes', 'timeout', 'network'].includes(error.type)
+      ? error
+      : null;
+  const inlineInvalidZip = error && error.type === 'invalid-zip' ? error : null;
+
+  const showInitialLoading = initialLoad && routes.length === 0 && !error;
+  const showZipChangeLoading = loading && routes.length > 0;
+  const showTilesFail = tilesFailed && !tilesFailDismissed;
+
   return (
     <div className="step1-root">
       {/* ── Map pane ─────────────────────────────────────────────── */}
@@ -143,14 +209,23 @@ export default function Step1Plan() {
           routes={routes}
           selected={state.selected}
           onToggle={toggleRoute}
+          onRoutesAutoSelected={handleRoutesAutoSelected}
           center={mapCenter}
           zoom={mapZoom}
           mode={mode}
           radius={radius}
+          circleCenter={circleCenter}
+          onCircleCenterChange={setCircleCenter}
+          onTilesFail={handleTilesFail}
           overlays={
             <>
               <div className="step1-zip-overlay">
-                <ZipSearchBar onSubmit={handleZipSubmit} />
+                <ZipSearchBar
+                  onZipChange={handleZipChange}
+                  onCenterChange={handleCenterChange}
+                  geocoding={loading && routes.length === 0}
+                  showInvalid={Boolean(inlineInvalidZip)}
+                />
                 {state.zips.length > 0 && (
                   <div className="step1-zip-chips">
                     {state.zips.map((zip) => (
@@ -169,7 +244,6 @@ export default function Step1Plan() {
                       type="button"
                       className="step1-add-zip"
                       onClick={() => {
-                        // focus the search bar — relies on autoscroll
                         const input = document.querySelector('.v2-zip-search input');
                         if (input) input.focus();
                       }}
@@ -193,13 +267,21 @@ export default function Step1Plan() {
                 />
               </div>
 
-              {loading && (
-                <div className="step1-loading-bar" aria-hidden="true" />
+              {showZipChangeLoading && (
+                <Step1LoadingOverlay variant="zip-change" />
               )}
 
-              {error && (
-                <div className="step1-error-banner" role="alert">
-                  {error}
+              {showInitialLoading && (
+                <Step1LoadingOverlay variant="initial" />
+              )}
+
+              {showTilesFail && (
+                <div className="step1-tiles-fail-overlay">
+                  <Step1ErrorBanner
+                    type="tiles-fail"
+                    onRetry={handleTilesRetry}
+                    onContinue={handleTilesContinue}
+                  />
                 </div>
               )}
             </>
@@ -225,6 +307,16 @@ export default function Step1Plan() {
             />
           )}
         </div>
+
+        {sidebarError && (
+          <div className="step1-sidebar-error">
+            <Step1ErrorBanner
+              type={sidebarError.type}
+              zip={sidebarError.zip}
+              onRetry={handleErrorRetry}
+            />
+          </div>
+        )}
 
         <section className="step1-mailing-area">
           <Eyebrow>Mailing Area</Eyebrow>

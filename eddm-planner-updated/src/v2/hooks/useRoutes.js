@@ -4,29 +4,35 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * Fetch EDDM carrier routes for one or more ZIP codes via MPA's existing
  * Netlify function proxy (ported from EDDMMapper.js).
  *
+ * Phase 4 upgrade:
+ *   - `error` is now a structured object: { type, message, retry } (or null)
+ *   - `error.type` ∈ 'invalid-zip' | 'no-routes' | 'timeout' | 'network'
+ *   - AbortController cancels in-flight requests on new fetches
+ *   - 15-second client-side timeout wraps every fetch
+ *
  * The endpoint returns ArcGIS-style FeatureCollections; we normalize them
  * into a shape that matches the V4R2 design spec:
  *
  *   {
  *     id:          'ZZZZZ-<CRID>',
- *     name:        '<CRID>',                        // "C 001", route code
+ *     name:        '<CRID>',
  *     zip:         '33801',
- *     hh:          number,                          // residential HH
- *     allHH:       number,                          // residential + business
+ *     hh:          number,
+ *     allHH:       number,
  *     businesses:  number,
- *     income:      number | null,                   // avg/median HH income
- *     coordinates: Array<Array<{lat, lng}>>,        // array of paths
+ *     income:      number | null,
+ *     coordinates: Array<Array<{lat, lng}>>,
  *     centerLat:   number,
  *     centerLng:   number,
  *   }
  *
  * Usage:
  *   const { routes, loading, error, fetchZip, clearRoutes } = useRoutes();
- *   fetchZip('33801');              // append routes for one ZIP
- *   // or:
- *   const { routes } = useRoutes(['33801', '33803']);  // auto-fetch on mount
+ *   fetchZip('33801');
+ *   // error shape: { type: 'no-routes', message: '...', retry: () => ... }
  */
 const EDDM_API_ENDPOINT = '/.netlify/functions/eddm-routes';
+const FETCH_TIMEOUT_MS = 15000;
 
 function getNumericAttribute(attrs, keys) {
   for (const key of keys) {
@@ -78,11 +84,16 @@ export default function useRoutes(initialZips = null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const fetchedZipsRef = useRef(new Set());
+  const abortRef = useRef(null);
 
   const clearRoutes = useCallback(() => {
     setRoutes([]);
     setError(null);
     fetchedZipsRef.current = new Set();
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
   }, []);
 
   const removeZip = useCallback((zip) => {
@@ -92,19 +103,51 @@ export default function useRoutes(initialZips = null) {
 
   const fetchZip = useCallback(async (zip) => {
     if (!zip || !/^\d{5}$/.test(zip)) {
-      setError('Enter a 5-digit ZIP (e.g. 33801).');
+      const retry = () => fetchZip(zip);
+      setError({
+        type: 'invalid-zip',
+        message: 'Enter a 5-digit ZIP (e.g. 33801).',
+        zip,
+        retry,
+      });
       return { ok: false, reason: 'invalid-zip' };
     }
+
+    // Cancel any in-flight request before starting a new one.
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const timeoutId = setTimeout(() => controller.abort('timeout'), FETCH_TIMEOUT_MS);
+
     setLoading(true);
     setError(null);
+
+    const retry = () => fetchZip(zip);
+
     try {
-      const resp = await fetch(`${EDDM_API_ENDPOINT}?zip=${zip}`);
-      if (!resp.ok) throw new Error('USPS route service did not respond.');
+      const resp = await fetch(`${EDDM_API_ENDPOINT}?zip=${zip}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        throw Object.assign(new Error('USPS route service did not respond.'), {
+          __classify: 'network',
+        });
+      }
+
       const data = await resp.json();
       const features = data?.results?.[0]?.value?.features;
+
       if (!Array.isArray(features) || features.length === 0) {
-        throw new Error(`No carrier routes found for ${zip}.`);
+        throw Object.assign(new Error(`No carrier routes found for ${zip}.`), {
+          __classify: 'no-routes',
+        });
       }
+
       const transformed = features.map((f, i) => transformFeature(f, zip, i));
       setRoutes((prev) => {
         const filtered = prev.filter((r) => r.zip !== zip);
@@ -112,11 +155,39 @@ export default function useRoutes(initialZips = null) {
       });
       fetchedZipsRef.current.add(zip);
       setLoading(false);
+      if (abortRef.current === controller) abortRef.current = null;
       return { ok: true, routes: transformed };
     } catch (err) {
-      setError(err.message || 'Failed to load routes.');
+      clearTimeout(timeoutId);
+      if (abortRef.current === controller) abortRef.current = null;
       setLoading(false);
-      return { ok: false, reason: 'fetch-error', error: err };
+
+      // Silently ignore aborts that weren't caused by our timeout — they
+      // just mean a newer fetch superseded this one.
+      const isTimeout =
+        err?.name === 'AbortError' && controller.signal.reason === 'timeout';
+      if (err?.name === 'AbortError' && !isTimeout) {
+        return { ok: false, reason: 'aborted' };
+      }
+
+      let type;
+      if (isTimeout) type = 'timeout';
+      else if (err.__classify === 'no-routes') type = 'no-routes';
+      else if (err.__classify === 'network') type = 'network';
+      else type = 'network';
+
+      setError({
+        type,
+        message:
+          type === 'timeout'
+            ? "USPS route service didn't respond. Retrying automatically..."
+            : type === 'no-routes'
+            ? `No carrier routes found for ${zip}.`
+            : err.message || 'Failed to load routes.',
+        zip,
+        retry,
+      });
+      return { ok: false, reason: type, error: err };
     }
   }, []);
 
@@ -128,6 +199,13 @@ export default function useRoutes(initialZips = null) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Array.isArray(initialZips) ? initialZips.join(',') : '']);
+
+  // Cleanup: abort any in-flight fetch on unmount.
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
 
   return { routes, loading, error, fetchZip, removeZip, clearRoutes };
 }
