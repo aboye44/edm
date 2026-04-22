@@ -193,6 +193,10 @@ function transformFeature(feature, zip, index) {
 export default function useRoutes(initialZips = null) {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Separate flag for multi-ZIP radius fetches so the per-ZIP loading
+  // toggling inside fetchZip doesn't cause the blocking overlay to
+  // flicker between ZIPs.
+  const [radiusLoading, setRadiusLoading] = useState(false);
   const [error, setError] = useState(null);
   const fetchedZipsRef = useRef(new Set());
   const abortRef = useRef(null);
@@ -331,20 +335,25 @@ export default function useRoutes(initialZips = null) {
   const fetchRadius = useCallback(
     async ({ center, radius, centerZip }) => {
       if (!center || !radius) return { ok: false, reason: 'no-args' };
-      const zips = await discoverZipsAroundPoint({
-        center,
-        radius,
-        centerZip,
-      });
-      const newZips = zips.filter((z) => !fetchedZipsRef.current.has(z));
-      if (newZips.length === 0) return { ok: true, zips, fetched: [] };
-      const fetched = [];
-      for (const zip of newZips) {
-        // Sequential: await each so they don't abort each other.
-        const r = await fetchZip(zip);
-        fetched.push({ zip, ok: r?.ok !== false });
+      setRadiusLoading(true);
+      try {
+        const zips = await discoverZipsAroundPoint({
+          center,
+          radius,
+          centerZip,
+        });
+        const newZips = zips.filter((z) => !fetchedZipsRef.current.has(z));
+        if (newZips.length === 0) return { ok: true, zips, fetched: [] };
+        const fetched = [];
+        for (const zip of newZips) {
+          // Sequential: await each so they don't abort each other.
+          const r = await fetchZip(zip);
+          fetched.push({ zip, ok: r?.ok !== false });
+        }
+        return { ok: true, zips, fetched };
+      } finally {
+        setRadiusLoading(false);
       }
-      return { ok: true, zips, fetched };
     },
     [fetchZip]
   );
@@ -367,7 +376,11 @@ export default function useRoutes(initialZips = null) {
 
   return {
     routes,
-    loading,
+    // Unified: blocking overlay should show whenever we're fetching
+    // anything (single ZIP or multi-ZIP radius). Keeps the UI from
+    // flickering between per-ZIP loading toggles during a radius fetch.
+    loading: loading || radiusLoading,
+    radiusLoading,
     error,
     fetchZip,
     fetchRadius,

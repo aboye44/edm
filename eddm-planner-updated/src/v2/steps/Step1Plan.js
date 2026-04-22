@@ -306,8 +306,13 @@ export default function Step1Plan() {
       : null;
   const inlineInvalidZip = error && error.type === 'invalid-zip' ? error : null;
 
-  const showInitialLoading = initialLoad && routes.length === 0 && !error;
-  const showZipChangeLoading = loading && routes.length > 0;
+  // Phase 5.2 — unified blocking overlay. Any loading (single ZIP or
+  // multi-ZIP radius) triggers the same aggressive full-map overlay.
+  // Prevents "is anything happening?" moments where users click around.
+  const showBlockingLoading = loading && !error;
+  const loadingSubLabel = state.searchMode === 'radius'
+    ? 'Discovering ZIPs within your radius — this may take a moment.'
+    : null;
   const showTilesFail = tilesFailed && !tilesFailDismissed;
 
   return (
@@ -375,12 +380,11 @@ export default function Step1Plan() {
 
               {/* Phase 5.1: ModeSwitcher no longer rendered. See SearchTabs. */}
 
-              {showZipChangeLoading && (
-                <Step1LoadingOverlay variant="zip-change" />
-              )}
-
-              {showInitialLoading && (
-                <Step1LoadingOverlay variant="initial" />
+              {showBlockingLoading && (
+                <Step1LoadingOverlay
+                  variant="blocking"
+                  subLabel={loadingSubLabel}
+                />
               )}
 
               {showTilesFail && (

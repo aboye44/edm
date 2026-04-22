@@ -922,61 +922,69 @@
   box-shadow: var(--mpa-v2-shadow-map-overlay-lg);
 }
 
-/* ─── Phase 4: Loading overlays ─────────────────────────────── */
-.v2-loading-overlay--initial {
+/* ─── Phase 5.2: Aggressive blocking loading overlay ─────────────
+   Covers the map, blocks clicks, and shows a spinner + label so
+   impatient users don't wonder what's happening during a 5-10s
+   multi-ZIP radius fetch. */
+.v2-loading-overlay--blocking {
   position: absolute;
   inset: 0;
-  z-index: 7;
-  pointer-events: none;
+  z-index: 20;
+  pointer-events: auto;
+  background: rgba(31, 26, 18, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: v2OverlayFadeIn 0.15s ease-out;
 }
 
-.v2-loading-overlay-veil {
-  position: absolute;
-  inset: 0;
+@keyframes v2OverlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.v2-loading-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 36px;
   background: var(--mpa-v2-paper);
-  opacity: 0.6;
+  border: 1px solid var(--mpa-v2-line);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  min-width: 280px;
+  max-width: 420px;
+  text-align: center;
+}
+
+.v2-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(192, 58, 63, 0.18);
+  border-top-color: var(--mpa-v2-red);
+  border-radius: 50%;
+  animation: v2Spin 0.8s linear infinite;
+}
+
+@keyframes v2Spin {
+  to { transform: rotate(360deg); }
 }
 
 .v2-loading-overlay-label {
-  position: relative;
-  z-index: 2;
   font-family: var(--mpa-v2-font-sans);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.8px;
-  text-transform: uppercase;
-  color: var(--mpa-v2-red);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--mpa-v2-ink);
 }
 
-.v2-loading-overlay--zip-change {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  z-index: 6;
-  pointer-events: none;
-}
-
-.v2-loading-overlay-bar {
-  position: relative;
-  width: 100%;
-  height: 2px;
-  background: rgba(192, 58, 63, 0.12);
-  overflow: hidden;
-}
-
-.v2-loading-overlay-bar-fill {
-  position: absolute;
-  top: 0;
-  left: -40%;
-  width: 40%;
-  height: 100%;
-  background: var(--mpa-v2-red);
-  animation: v2ProgressIndeterminate 1.4s ease-in-out infinite;
+.v2-loading-overlay-sublabel {
+  font-family: var(--mpa-v2-font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--mpa-v2-slate);
+  max-width: 280px;
 }
 
 .v2-loading-inline {
