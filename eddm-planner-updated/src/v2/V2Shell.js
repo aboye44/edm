@@ -18,8 +18,7 @@ export default function V2Shell() {
     <div className="v2-root">
       <header className="v2-header">
         <div className="v2-brand">
-          <div className="v2-logo">M</div>
-          <span className="v2-brand-name">Mailpro · EDDM Planner</span>
+          <span className="v2-brand-name">MailPro · EDDM Planner</span>
         </div>
         <nav className="v2-stepnav">
           {STEPS.map((step) => (
@@ -32,7 +31,7 @@ export default function V2Shell() {
             </Link>
           ))}
         </nav>
-        <div className="v2-help">Need help? <a href="tel:+18633446245">(844) 344-6245</a></div>
+        <div className="v2-help">Need help? <a href="tel:+18636876945">(863) 687-6945</a></div>
       </header>
       <main className="v2-main">
         <Outlet />

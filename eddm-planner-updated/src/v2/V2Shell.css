@@ -23,18 +23,6 @@
   gap: 10px;
 }
 
-.v2-logo {
-  width: 24px;
-  height: 24px;
-  background: var(--mpa-v2-red);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 11px;
-}
-
 .v2-brand-name {
   font-size: 13px;
   font-weight: 600;

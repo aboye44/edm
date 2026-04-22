@@ -569,7 +569,7 @@ export default function Step1Plan() {
 
         <div className="step1-subcta">
           Print &amp; design pricing on the next step &middot; Family-run in
-          Lakeland, FL since 1977
+          Lakeland, FL since 1989
         </div>
       </aside>
     </div>
