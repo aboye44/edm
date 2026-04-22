@@ -47,7 +47,6 @@ export default function Step1Plan() {
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(12);
   const [circleCenter, setCircleCenter] = useState(null);
-  const [initialLoad, setInitialLoad] = useState(true);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [tilesFailDismissed, setTilesFailDismissed] = useState(false);
 
@@ -56,9 +55,6 @@ export default function Step1Plan() {
     if (state.zips && state.zips.length > 0) {
       state.zips.forEach((zip) => fetchZip(zip));
     }
-    // After first render, no longer "initial".
-    const t = setTimeout(() => setInitialLoad(false), 400);
-    return () => clearTimeout(t);
     // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
