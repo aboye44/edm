@@ -92,10 +92,10 @@ export default function ZipSearchBar({
       setVal('');
       setTouched(false);
     } else if (place.formatted_address) {
-      // Autocomplete returned something without a ZIP (rare for '(regions)')
-      // — surface it so the user can refine.
+      // Rare: user picked a place without a postal_code (e.g. a region
+      // with no ZIP). Surface the formatted address but don't show the
+      // error banner — they picked a legitimate result, not a typo.
       setVal(place.formatted_address);
-      setTouched(true);
     }
   }, [dispatchZip, onCenterChange]);
 
@@ -139,8 +139,14 @@ export default function ZipSearchBar({
           onLoad={handleAutocompleteLoad}
           onPlaceChanged={handlePlaceChanged}
           options={{
-            types: ['(regions)'],
+            // 'geocode' accepts addresses, ZIPs, cities, sublocalities — the
+            // full geocoder result set. '(regions)' would block street
+            // addresses, which is wrong for our use case (users paste full
+            // office addresses and expect a match).
+            types: ['geocode'],
             componentRestrictions: { country: 'us' },
+            // Only request what we actually use — smaller payload + faster.
+            fields: ['address_components', 'geometry', 'formatted_address'],
           }}
         >
           <input
@@ -148,7 +154,6 @@ export default function ZipSearchBar({
             value={val}
             placeholder={placeholder}
             onChange={(e) => setVal(e.target.value)}
-            onBlur={() => setTouched(true)}
             aria-label="ZIP code, city, or address"
             aria-invalid={showError}
           />

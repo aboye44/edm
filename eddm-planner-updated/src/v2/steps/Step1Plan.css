@@ -97,6 +97,49 @@
   border-left: 3px solid var(--mpa-v2-red);
 }
 
+/* Google Places Autocomplete dropdown (portaled to document body).
+   Raise above map overlays + match V4R2 aesthetic. */
+.pac-container {
+  z-index: 10000 !important;
+  border: 1px solid var(--mpa-v2-line);
+  border-top: none;
+  box-shadow: var(--mpa-v2-shadow-map-overlay-lg);
+  border-radius: 0;
+  font-family: var(--mpa-v2-font-sans);
+  background: var(--mpa-v2-white);
+}
+.pac-item {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--mpa-v2-ink);
+  border-top: 1px solid var(--mpa-v2-line-soft);
+  cursor: pointer;
+}
+.pac-item:first-child {
+  border-top: none;
+}
+.pac-item:hover,
+.pac-item-selected {
+  background: var(--mpa-v2-paper-soft);
+}
+.pac-item-query {
+  font-size: 13px;
+  color: var(--mpa-v2-ink);
+  font-weight: 500;
+}
+.pac-matched {
+  font-weight: 700;
+}
+.pac-icon {
+  margin-right: 8px;
+}
+.pac-logo:after {
+  /* Hide the 'powered by Google' attribution if you want, or keep it.
+     Google's TOS requires it visible if not on a Google Map — we ARE on
+     a map so this is optional. Keeping visible for compliance. */
+  opacity: 0.6;
+}
+
 .step1-zip-chips {
   display: flex;
   flex-wrap: wrap;
