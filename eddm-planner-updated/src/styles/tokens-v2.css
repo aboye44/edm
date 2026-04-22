@@ -1,0 +1,53 @@
+/* ─────────────────────────────────────────────────────────────
+ * EDDM v2 Design Tokens — V4 Refined v2 palette
+ * ─────────────────────────────────────────────────────────────
+ *
+ * Source of truth:
+ *   /tmp/mail-list-v3/design_handoff_eddm_planner/design_refs/shared/tokens.jsx
+ *   /tmp/mail-list-v3/design_handoff_eddm_planner/README.md
+ *
+ * The aesthetic is "V4 Refined v2" — cream paper, warm near-black ink,
+ * a single red accent (#C03A3F), zero border-radius, Geist sans + Geist
+ * Mono. No gradients. No drop shadows beyond the map-overlay set.
+ *
+ * All variables are prefixed `--mpa-v2-` to avoid colliding with the
+ * existing tokens in EDDMMapper.css (which uses --mpa-red: #D64045 —
+ * a DIFFERENT red from the v2 #C03A3F).
+ *
+ * IMPORTANT: This file is NOT imported anywhere yet. It is Phase 1
+ * scaffolding for the EDDM v2 redesign. It is gated behind the
+ * MPA_PRICING_VISIBLE feature flag (see src/config/flags.js).
+ * It becomes live when later phases wire it into the component tree.
+ * ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* ─── Color tokens (V4 Refined v2 palette) ─── */
+  --mpa-v2-cream:       #F5F2EB;
+  --mpa-v2-cream-soft:  #ECE7DB;
+  --mpa-v2-paper:       #FBF9F4;
+  --mpa-v2-paper-soft:  #F7F4ED;
+  --mpa-v2-ink:         #1F1A12;
+  --mpa-v2-ink-soft:    #4A4336;
+  --mpa-v2-slate:       #8A8170;
+  --mpa-v2-red:         #C03A3F;
+  --mpa-v2-red-soft:    #E8C4C6;
+  --mpa-v2-red-wash:    #F6E8E9;
+  --mpa-v2-line:        #D9D2C4;
+  --mpa-v2-line-soft:   #E8E2D3;
+  --mpa-v2-amber:       #B8892F;
+  --mpa-v2-amber-wash:  #F5EBD6;
+  --mpa-v2-white:       #FFFFFF;
+
+  /* ─── Font stacks ─── */
+  --mpa-v2-font-sans: 'Geist', system-ui, sans-serif;
+  --mpa-v2-font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* ─── Shadows ─── */
+  /* The only shadows allowed in the v2 design. Do not add elevation
+   * to cards — cards use a 1px solid line border instead. */
+  --mpa-v2-shadow-map-overlay-soft: 0 4px 16px rgba(31, 26, 18, 0.06);
+  --mpa-v2-shadow-map-overlay-med:  0 4px 16px rgba(31, 26, 18, 0.10);
+  --mpa-v2-shadow-map-overlay-lg:   0 6px 24px rgba(31, 26, 18, 0.08);
+  --mpa-v2-shadow-cta-red-desktop:  0 4px 14px rgba(192, 58, 63, 0.28);
+  --mpa-v2-shadow-cta-red-mobile:   0 4px 14px rgba(192, 58, 63, 0.25);
+}
