@@ -12,7 +12,6 @@ import {
 // Google Maps JS API script is requested identically (and, in practice, only
 // once per page load). Drawing is used by the "Draw" mode switcher; Places
 // is used by the ZIP search bar's autocomplete.
-// eslint-disable-next-line react-refresh/only-export-components
 export const V2_MAP_LIBRARIES = ['places', 'drawing'];
 
 const DEFAULT_CENTER = { lat: 28.0395, lng: -81.9498 }; // Lakeland, FL
