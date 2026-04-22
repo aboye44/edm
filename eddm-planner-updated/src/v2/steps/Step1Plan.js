@@ -1,18 +1,377 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MPA_PRICING_VISIBLE } from '../../config/flags';
+import { usePlanner } from '../PlannerContext';
+import Eyebrow from '../primitives/Eyebrow';
+import Chip from '../primitives/Chip';
+import useCountUp from '../primitives/useCountUp';
+import fmtN from '../primitives/fmtN';
+import useRoutes from '../hooks/useRoutes';
+import MapPane from '../components/MapPane';
+import ZipSearchBar from '../components/ZipSearchBar';
+import StatePill from '../components/StatePill';
+import ModeSwitcher from '../components/ModeSwitcher';
+import SavePlanPopover from '../components/SavePlanPopover';
+import './Step1Plan.css';
+
+// USPS EDDM retail flat rate 2026 — only shown when MPA_PRICING_VISIBLE is true.
+const POSTAGE_PER_PIECE = 0.359;
 
 export default function Step1Plan() {
+  const navigate = useNavigate();
+  const { state, update } = usePlanner();
+  const {
+    routes,
+    loading,
+    error,
+    fetchZip,
+    removeZip: removeZipRoutes,
+    clearRoutes,
+  } = useRoutes();
+
+  // UI-only state (not persisted).
+  const [savePopover, setSavePopover] = useState(false);
+  const [mode, setMode] = useState('click');
+  const [radius, setRadius] = useState(1);
+  const [mapCenter, setMapCenter] = useState(null);
+  const [mapZoom, setMapZoom] = useState(12);
+
+  // Sync fetched routes → auto-fetch any persisted ZIPs on mount once.
+  useEffect(() => {
+    if (state.zips && state.zips.length > 0) {
+      state.zips.forEach((zip) => fetchZip(zip));
+    }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-center map whenever a new ZIP arrives.
+  useEffect(() => {
+    if (routes.length === 0) return;
+    const last = routes[routes.length - 1];
+    if (last?.centerLat && last?.centerLng) {
+      setMapCenter({ lat: last.centerLat, lng: last.centerLng });
+      setMapZoom(13);
+    }
+    // intentionally re-run only when the route count shifts, not on every
+    // content change — otherwise the map would re-center on every toggle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routes.length]);
+
+  // ── Derived totals ──────────────────────────────────────────────
+  const selectedRoutes = useMemo(
+    () => routes.filter((r) => state.selected.includes(r.id)),
+    [routes, state.selected]
+  );
+
+  // Apply the deliveryFilter — 'residential' uses r.hh, 'all' uses r.allHH.
+  const getDeliveryCount = useCallback(
+    (r) => (state.deliveryFilter === 'residential' ? r.hh : r.allHH || r.hh),
+    [state.deliveryFilter]
+  );
+
+  const totals = useMemo(() => {
+    const count = selectedRoutes.length;
+    const hh = selectedRoutes.reduce((s, r) => s + getDeliveryCount(r), 0);
+    const incomeWeighted = selectedRoutes.reduce(
+      (s, r) => s + (r.income || 0) * getDeliveryCount(r),
+      0
+    );
+    const avgIncome = hh > 0 ? Math.round(incomeWeighted / hh) : 0;
+    const cost = hh * POSTAGE_PER_PIECE;
+    return { count, hh, avgIncome, cost };
+  }, [selectedRoutes, getDeliveryCount]);
+
+  const hhAnim = useCountUp(totals.hh, 400);
+  const costAnim = useCountUp(Math.round(totals.cost), 400);
+
+  // ── Handlers ────────────────────────────────────────────────────
+  const handleZipSubmit = async (zip) => {
+    if (state.zips.includes(zip)) return;
+    const result = await fetchZip(zip);
+    if (result.ok) {
+      update({ zips: [...state.zips, zip] });
+    }
+  };
+
+  const handleRemoveZip = (zip) => {
+    removeZipRoutes(zip);
+    update({
+      zips: state.zips.filter((z) => z !== zip),
+      selected: state.selected.filter((id) => !id.startsWith(`${zip}-`)),
+    });
+  };
+
+  const toggleRoute = (routeId) => {
+    const next = state.selected.includes(routeId)
+      ? state.selected.filter((id) => id !== routeId)
+      : [...state.selected, routeId];
+    update({ selected: next });
+  };
+
+  const clearAll = () => update({ selected: [] });
+
+  const clearAllZips = () => {
+    clearRoutes();
+    update({ zips: [], selected: [] });
+  };
+
+  const setDelivery = (filter) => update({ deliveryFilter: filter });
+
+  const handleContinue = () => {
+    if (totals.count === 0) return;
+    navigate('/v2/design');
+  };
+
+  // ── Location copy ────────────────────────────────────────────────
+  const primaryZip = state.zips[0];
+  const zipsSuffix =
+    state.zips.length === 0
+      ? ''
+      : state.zips.length === 1
+      ? `· ${primaryZip}`
+      : `· ${state.zips.length} ZIPs`;
+
+  const availableCount = routes.length;
+  const avgIncomeK = Math.round((totals.avgIncome || 0) / 1000);
+
   return (
-    <div style={{ padding: '60px 28px', textAlign: 'center' }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.8,
-        textTransform: 'uppercase', color: 'var(--mpa-v2-red)', marginBottom: 12 }}>
-        Step 1
+    <div className="step1-root">
+      {/* ── Map pane ─────────────────────────────────────────────── */}
+      <div className="step1-map-pane">
+        <MapPane
+          routes={routes}
+          selected={state.selected}
+          onToggle={toggleRoute}
+          center={mapCenter}
+          zoom={mapZoom}
+          mode={mode}
+          radius={radius}
+          overlays={
+            <>
+              <div className="step1-zip-overlay">
+                <ZipSearchBar onSubmit={handleZipSubmit} />
+                {state.zips.length > 0 && (
+                  <div className="step1-zip-chips">
+                    {state.zips.map((zip) => (
+                      <span key={zip} className="step1-zip-chip">
+                        {zip}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveZip(zip)}
+                          aria-label={`Remove ZIP ${zip}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      className="step1-add-zip"
+                      onClick={() => {
+                        // focus the search bar — relies on autoscroll
+                        const input = document.querySelector('.v2-zip-search input');
+                        if (input) input.focus();
+                      }}
+                    >
+                      + Add another ZIP
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="step1-state-overlay">
+                <StatePill count={totals.count} hh={totals.hh} />
+              </div>
+
+              <div className="step1-mode-overlay">
+                <ModeSwitcher
+                  mode={mode}
+                  onChange={setMode}
+                  radius={radius}
+                  onRadiusChange={setRadius}
+                />
+              </div>
+
+              {loading && (
+                <div className="step1-loading-bar" aria-hidden="true" />
+              )}
+
+              {error && (
+                <div className="step1-error-banner" role="alert">
+                  {error}
+                </div>
+              )}
+            </>
+          }
+        />
       </div>
-      <h1 style={{ fontSize: 32, fontWeight: 500, letterSpacing: -0.8, margin: 0 }}>
-        Plan — Phase 3 implementation pending
-      </h1>
-      <p style={{ color: 'var(--mpa-v2-slate)', marginTop: 12 }}>
-        Map + route selection + sidebar will land in the next PR.
-      </p>
+
+      {/* ── Sidebar ─────────────────────────────────────────────── */}
+      <aside className="step1-sidebar">
+        <div className="step1-sidebar-head">
+          <button
+            type="button"
+            className="step1-save-link"
+            onClick={() => setSavePopover((s) => !s)}
+            aria-expanded={savePopover}
+          >
+            {savePopover ? '✕ Close' : '🔗 Save this plan'}
+          </button>
+          {savePopover && (
+            <SavePlanPopover
+              onClose={() => setSavePopover(false)}
+              plannerState={state}
+            />
+          )}
+        </div>
+
+        <section className="step1-mailing-area">
+          <Eyebrow>Mailing Area</Eyebrow>
+          <div className="step1-mailing-area-city">
+            {state.zips.length === 0
+              ? 'Enter a ZIP to begin'
+              : `Lakeland, FL ${zipsSuffix}`}
+          </div>
+          {state.zips.length > 0 && (
+            <div className="step1-delivery-toggle">
+              <button
+                type="button"
+                className={state.deliveryFilter === 'residential' ? 'is-active' : ''}
+                onClick={() => setDelivery('residential')}
+              >
+                Residential
+              </button>
+              <button
+                type="button"
+                className={state.deliveryFilter === 'all' ? 'is-active' : ''}
+                onClick={() => setDelivery('all')}
+              >
+                All delivery
+              </button>
+            </div>
+          )}
+        </section>
+
+        <hr className="step1-rule" />
+
+        <section className="step1-hero">
+          <Eyebrow color="var(--mpa-v2-red)">Households Reached</Eyebrow>
+          <div className="step1-hero-number" aria-live="polite">
+            {fmtN(hhAnim)}
+          </div>
+          <p className="step1-subhero">
+            Your postcard lands in{' '}
+            <strong>{fmtN(hhAnim)} real mailboxes</strong> across{' '}
+            {totals.count} USPS carrier{' '}
+            {totals.count === 1 ? 'route' : 'routes'} in Lakeland.
+          </p>
+        </section>
+
+        <hr className="step1-rule" />
+
+        <section className="step1-statpair">
+          <div className="step1-stat">
+            <Eyebrow>Routes Picked</Eyebrow>
+            <div className="step1-stat-value">{fmtN(totals.count)}</div>
+            <div className="step1-stat-sub">of {fmtN(availableCount)} nearby</div>
+          </div>
+          <div className="step1-stat">
+            <Eyebrow>Avg Income</Eyebrow>
+            <div className="step1-stat-value">
+              {totals.avgIncome > 0 ? `$${avgIncomeK}k` : '—'}
+            </div>
+            <div className="step1-stat-sub">median HH</div>
+          </div>
+        </section>
+
+        <hr className="step1-rule" />
+
+        <section className="step1-chips">
+          <div className="step1-chips-header">
+            <Eyebrow>Your Routes</Eyebrow>
+            {totals.count > 0 && (
+              <button
+                type="button"
+                className="step1-clear-all"
+                onClick={clearAll}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          {totals.count === 0 ? (
+            <div className="step1-empty">
+              Click any shape on the map to add it to your mailing.
+            </div>
+          ) : (
+            <div className="step1-chip-list">
+              {selectedRoutes.map((r) => (
+                <Chip
+                  key={r.id}
+                  routeId={r.id}
+                  name={r.name}
+                  hh={getDeliveryCount(r)}
+                  onRemove={() => toggleRoute(r.id)}
+                />
+              ))}
+            </div>
+          )}
+          {state.zips.length > 0 && (
+            <button
+              type="button"
+              className="step1-clear-zips"
+              onClick={clearAllZips}
+            >
+              Clear all ZIPs
+            </button>
+          )}
+        </section>
+
+        <hr className="step1-rule" />
+
+        {/* Postage row — GATED on MPA_PRICING_VISIBLE. Currently false. */}
+        {MPA_PRICING_VISIBLE && (
+          <>
+            <section className="step1-postage">
+              <div>
+                <Eyebrow>Postage</Eyebrow>
+                <div className="step1-postage-sub">
+                  <strong>${POSTAGE_PER_PIECE.toFixed(3)}</strong> per
+                  household, all-in
+                </div>
+              </div>
+              <div className="step1-postage-total">${fmtN(costAnim)}</div>
+            </section>
+            <hr className="step1-rule" />
+          </>
+        )}
+
+        <div className="step1-trust">
+          <div>
+            <span className="step1-trust-check">✓</span> USPS delivers to
+            every door — no mailing list needed
+          </div>
+          <div>
+            <span className="step1-trust-check">✓</span> Save your plan free.
+            Pay only when you order.
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="step1-cta"
+          disabled={totals.count === 0}
+          onClick={handleContinue}
+        >
+          Continue to design →
+        </button>
+
+        <div className="step1-subcta">
+          Print &amp; design pricing on the next step &middot; Family-run in
+          Lakeland, FL since 1977
+        </div>
+      </aside>
     </div>
   );
 }
