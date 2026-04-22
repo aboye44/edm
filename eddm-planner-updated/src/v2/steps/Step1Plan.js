@@ -32,6 +32,7 @@ export default function Step1Plan() {
     loading,
     error,
     fetchZip,
+    fetchRadius,
     removeZip: removeZipRoutes,
     clearRoutes,
   } = useRoutes();
@@ -115,11 +116,21 @@ export default function Step1Plan() {
   }, [totals.hh]);
 
   // ── Handlers ────────────────────────────────────────────────────
+  // Auto-select ALL routes in the fetched ZIP. Users searching a ZIP
+  // want the whole ZIP by default — they can deselect individual routes
+  // after. Saves the "click 8 polygons in sequence" friction.
   const handleZipChange = async (zip) => {
     if (state.zips.includes(zip)) return;
     const result = await fetchZip(zip);
-    if (result.ok) {
-      update({ zips: [...state.zips, zip] });
+    if (result.ok && Array.isArray(result.routes)) {
+      const newIds = result.routes.map((r) => r.id);
+      update({
+        zips: [...state.zips, zip],
+        selected: [
+          ...state.selected,
+          ...newIds.filter((id) => !state.selected.includes(id)),
+        ],
+      });
     }
   };
 
@@ -135,36 +146,38 @@ export default function Step1Plan() {
   //   5. Persist {searchMode, radiusSearch} so Review can say "targeting
   //      3 miles around 430 N Washington Ave" instead of a bare ZIP list.
   const handleRadiusSearch = useCallback(
-    ({ center, radius: nextRadius, label, zip }) => {
+    async ({ center, radius: nextRadius, label, zip }) => {
       if (!center) return;
       setMapCenter(center);
       setMapZoom(13);
       setCircleCenter(center);
       setRadius(nextRadius);
       setMode('radius');
-      if (zip && !state.zips.includes(zip)) {
-        fetchZip(zip).then((result) => {
-          if (result && result.ok) {
-            update({
-              zips: [...state.zips, zip],
-              searchMode: 'radius',
-              radiusSearch: { center, radius: nextRadius, label, zip },
-            });
-          } else {
-            update({
-              searchMode: 'radius',
-              radiusSearch: { center, radius: nextRadius, label, zip },
-            });
-          }
-        });
-      } else {
-        update({
-          searchMode: 'radius',
-          radiusSearch: { center, radius: nextRadius, label, zip: zip || null },
-        });
-      }
+      // Phase 5.2 — discover ALL ZIPs the circle touches (N/E/S/W cardinal
+      // sampling via Geocoder) and fetch routes for each. MapPane's
+      // autoSelectRadius effect then selects every route intersecting the
+      // circle across the full merged set.
+      const result = await fetchRadius({
+        center,
+        radius: nextRadius,
+        centerZip: zip,
+      });
+      const discoveredZips = (result && result.zips) || [];
+      const mergedZips = Array.from(
+        new Set([...state.zips, ...discoveredZips])
+      );
+      update({
+        zips: mergedZips,
+        searchMode: 'radius',
+        radiusSearch: {
+          center,
+          radius: nextRadius,
+          label,
+          zip: zip || null,
+        },
+      });
     },
-    [state.zips, fetchZip, update]
+    [state.zips, fetchRadius, update]
   );
 
   // Phase 5.1 fix — radius dropdown change handler. Lifts controlled
@@ -173,15 +186,26 @@ export default function Step1Plan() {
   // to re-submit SEARCH. Also updates the persisted radiusSearch in
   // context so Review reflects the latest radius.
   const handleRadiusChange = useCallback(
-    (nextRadius) => {
+    async (nextRadius) => {
       setRadius(nextRadius);
-      if (state.radiusSearch) {
-        update({
-          radiusSearch: { ...state.radiusSearch, radius: nextRadius },
-        });
-      }
+      if (!state.radiusSearch) return;
+      const { center, zip } = state.radiusSearch;
+      // Fetch any additional ZIPs that the expanded circle now covers.
+      const result = await fetchRadius({
+        center,
+        radius: nextRadius,
+        centerZip: zip,
+      });
+      const discoveredZips = (result && result.zips) || [];
+      const mergedZips = Array.from(
+        new Set([...state.zips, ...discoveredZips])
+      );
+      update({
+        zips: mergedZips,
+        radiusSearch: { ...state.radiusSearch, radius: nextRadius },
+      });
     },
-    [state.radiusSearch, update]
+    [state.radiusSearch, state.zips, fetchRadius, update]
   );
 
   // Phase 5.1 — switching tabs clears the radius overlay (so a ZIP search
@@ -315,7 +339,7 @@ export default function Step1Plan() {
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
                 />
-                {((state.searchMode || 'zip') === 'zip') && (state.zips.length > 0) && (
+                {state.zips.length > 0 && (
                   <div className="step1-zip-chips">
                     {state.zips.map((zip) => (
                       <span key={zip} className="step1-zip-chip">

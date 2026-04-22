@@ -12,6 +12,76 @@ import {
  */
 const censusIncomeCache = new Map();
 
+/**
+ * Calculate a point at a given distance (miles) + bearing (degrees) from an
+ * origin. Used to sample points around the radius edge so we can discover
+ * which ZIPs the circle overlaps. Ported from EDDMMapper.js.
+ */
+function calculateDestinationPoint(lat, lng, distanceMiles, bearingDegrees) {
+  const R = 3959; // Earth radius in miles
+  const d = distanceMiles / R;
+  const brng = (bearingDegrees * Math.PI) / 180;
+  const lat1 = (lat * Math.PI) / 180;
+  const lng1 = (lng * Math.PI) / 180;
+  const lat2 = Math.asin(
+    (Math.sin(lat1) * Math.cos(d)) +
+      (Math.cos(lat1) * Math.sin(d) * Math.cos(brng))
+  );
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(brng) * Math.sin(d) * Math.cos(lat1),
+      Math.cos(d) - (Math.sin(lat1) * Math.sin(lat2))
+    );
+  return { lat: (lat2 * 180) / Math.PI, lng: (lng2 * 180) / Math.PI };
+}
+
+/**
+ * Given a center + radius, discover the unique ZIPs the circle touches.
+ * Samples at 4 cardinal points (N/E/S/W) on the radius edge + reverse-geocodes
+ * each via the already-loaded Google Maps Geocoder. Falls back gracefully if
+ * Geocoder isn't available yet.
+ */
+async function discoverZipsAroundPoint({ center, radius, centerZip }) {
+  const zips = new Set();
+  if (centerZip && /^\d{5}$/.test(centerZip)) zips.add(centerZip);
+
+  const G = typeof window !== 'undefined' ? window.google : null;
+  if (!G?.maps?.Geocoder) return Array.from(zips);
+
+  const geocoder = new G.maps.Geocoder();
+  const bearings = [0, 90, 180, 270];
+  const points = bearings.map((b) =>
+    calculateDestinationPoint(center.lat, center.lng, radius, b)
+  );
+
+  await Promise.all(
+    points.map(
+      (p) =>
+        new Promise((resolve) => {
+          try {
+            geocoder.geocode({ location: p }, (results, status) => {
+              if (status === 'OK' && results && results[0]) {
+                const comps = results[0].address_components || [];
+                const comp = comps.find((c) =>
+                  (c.types || []).includes('postal_code')
+                );
+                if (comp && /^\d{5}$/.test(comp.long_name || '')) {
+                  zips.add(comp.long_name);
+                }
+              }
+              resolve();
+            });
+          } catch (_) {
+            resolve();
+          }
+        })
+    )
+  );
+
+  return Array.from(zips);
+}
+
 async function fetchCensusIncome(zip) {
   if (!zip || !/^\d{5}$/.test(zip)) return null;
   if (censusIncomeCache.has(zip)) return censusIncomeCache.get(zip);
@@ -245,6 +315,40 @@ export default function useRoutes(initialZips = null) {
     }
   }, []);
 
+  /**
+   * Phase 5.2 — Radius-based route discovery.
+   *
+   * When user picks an address + radius, we need to load routes for EVERY
+   * ZIP the circle touches, not just the center ZIP. Otherwise expanding
+   * the radius just redraws the circle without pulling new routes in.
+   *
+   * Samples N/E/S/W at the radius edge via Google Geocoder, collects
+   * unique ZIPs, then fetches any not-yet-loaded ZIP. Fetches are
+   * sequential (not parallel) because fetchZip shares an abortRef —
+   * parallel calls would cancel each other. 4-8 ZIPs × ~1s/fetch =
+   * 4-8s worst case; acceptable for this interaction.
+   */
+  const fetchRadius = useCallback(
+    async ({ center, radius, centerZip }) => {
+      if (!center || !radius) return { ok: false, reason: 'no-args' };
+      const zips = await discoverZipsAroundPoint({
+        center,
+        radius,
+        centerZip,
+      });
+      const newZips = zips.filter((z) => !fetchedZipsRef.current.has(z));
+      if (newZips.length === 0) return { ok: true, zips, fetched: [] };
+      const fetched = [];
+      for (const zip of newZips) {
+        // Sequential: await each so they don't abort each other.
+        const r = await fetchZip(zip);
+        fetched.push({ zip, ok: r?.ok !== false });
+      }
+      return { ok: true, zips, fetched };
+    },
+    [fetchZip]
+  );
+
   // Optional auto-fetch on mount / when initialZips changes shallowly.
   useEffect(() => {
     if (!Array.isArray(initialZips) || initialZips.length === 0) return;
@@ -261,5 +365,13 @@ export default function useRoutes(initialZips = null) {
     };
   }, []);
 
-  return { routes, loading, error, fetchZip, removeZip, clearRoutes };
+  return {
+    routes,
+    loading,
+    error,
+    fetchZip,
+    fetchRadius,
+    removeZip,
+    clearRoutes,
+  };
 }

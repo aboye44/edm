@@ -17,7 +17,7 @@ export default function StatePill({ count, hh }) {
           <span className="v2-state-pill-hint-arrow" aria-hidden="true">
             &#8598;
           </span>
-          <span>Tap a shape to add a route</span>
+          <span>Search a ZIP or address to load routes</span>
         </>
       ) : (
         <>
