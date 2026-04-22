@@ -59,9 +59,14 @@ export default function Step1Plan() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-center map whenever a new ZIP arrives.
+  // Re-center map when a new ZIP arrives — but ONLY in 'zip' search
+  // mode. In radius mode, handleRadiusSearch already centered on the
+  // searched address, and fetchRadius then pulls in 5-8 additional ZIPs
+  // sequentially. Re-centering on each one caused the map to jump
+  // around for the duration of the fetch. In radius mode, stay put.
   useEffect(() => {
     if (routes.length === 0) return;
+    if ((state.searchMode || 'zip') !== 'zip') return;
     const last = routes[routes.length - 1];
     if (last?.centerLat && last?.centerLng) {
       setMapCenter({ lat: last.centerLat, lng: last.centerLng });
@@ -71,10 +76,8 @@ export default function Step1Plan() {
         prev || { lat: last.centerLat, lng: last.centerLng }
       );
     }
-    // intentionally re-run only when the route count shifts, not on every
-    // content change — otherwise the map would re-center on every toggle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routes.length]);
+  }, [routes.length, state.searchMode]);
 
   // ── Derived totals ──────────────────────────────────────────────
   const selectedRoutes = useMemo(
