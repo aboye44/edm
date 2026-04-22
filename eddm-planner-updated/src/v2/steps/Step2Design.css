@@ -1,0 +1,599 @@
+/* ─────────────────────────────────────────────────────────────
+ * Step 2 — Design
+ *
+ * V4 Refined v2. Cream bg, Geist, zero radius, single red accent.
+ * Grid 1fr 380px on desktop, stacked below 768px.
+ * Mirrors the design-handoff reference at
+ * /tmp/mail-list-v3/design_handoff_eddm_planner/design_refs/screens/step2-design.jsx
+ * ───────────────────────────────────────────────────────────── */
+
+.step2-root {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  min-height: calc(100vh - 60px); /* under v2-header (60px) */
+  background: var(--mpa-v2-cream);
+  color: var(--mpa-v2-ink);
+  font-family: var(--mpa-v2-font-sans);
+}
+
+.step2-main {
+  padding: 32px 48px;
+  overflow-y: auto;
+}
+
+.step2-section {
+  margin-top: 0;
+}
+.step2-section + .step2-section {
+  margin-top: 32px;
+}
+
+.step2-title {
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.9px;
+  margin: 4px 0 6px;
+  color: var(--mpa-v2-ink);
+}
+
+.step2-subtitle {
+  font-size: 14px;
+  color: var(--mpa-v2-ink-soft);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.step2-h2 {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  margin: 0 0 6px;
+  color: var(--mpa-v2-ink);
+}
+
+.step2-h2-sub {
+  font-size: 13px;
+  color: var(--mpa-v2-ink-soft);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+/* ─── Size cards ──────────────────────────────────────────── */
+.step2-sizes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.step2-size-card {
+  text-align: left;
+  background: var(--mpa-v2-paper);
+  border: 1px solid var(--mpa-v2-line);
+  padding: 14px;
+  cursor: pointer;
+  font-family: var(--mpa-v2-font-sans);
+  transition: border-color .12s, background .12s;
+  color: var(--mpa-v2-ink);
+}
+
+.step2-size-card:hover {
+  border-color: var(--mpa-v2-ink-soft);
+}
+
+.step2-size-card[data-active='true'] {
+  background: var(--mpa-v2-paper-soft);
+  border: 2px solid var(--mpa-v2-red);
+  padding: 13px; /* compensate 2px border to keep layout stable */
+}
+
+.step2-size-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+  margin-bottom: 10px;
+}
+
+.step2-size-box {
+  background: var(--mpa-v2-paper-soft);
+  border: 1.5px solid var(--mpa-v2-slate);
+}
+.step2-size-card[data-active='true'] .step2-size-box {
+  background: var(--mpa-v2-paper);
+  border-color: var(--mpa-v2-ink);
+}
+
+.step2-size-custom-thumb {
+  width: 52px;
+  height: 40px;
+  border: 1.5px dashed var(--mpa-v2-slate);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: var(--mpa-v2-slate);
+}
+.step2-size-card[data-active='true'] .step2-size-custom-thumb {
+  border-color: var(--mpa-v2-red);
+  color: var(--mpa-v2-red);
+}
+
+.step2-size-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--mpa-v2-slate);
+}
+.step2-size-card[data-active='true'] .step2-size-label {
+  color: var(--mpa-v2-red);
+}
+
+.step2-size-name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: var(--mpa-v2-ink);
+  margin-top: 2px;
+}
+
+.step2-size-tag {
+  font-size: 11px;
+  color: var(--mpa-v2-ink-soft);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+/* ─── Custom-size panel ──────────────────────────────────── */
+.step2-custom-panel {
+  margin-top: 14px;
+  padding: 18px;
+  background: var(--mpa-v2-paper);
+  border: 1px solid var(--mpa-v2-line);
+}
+
+.step2-custom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+.step2-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mpa-v2-ink-soft);
+  display: block;
+  margin-bottom: 4px;
+}
+.step2-field-label span {
+  color: var(--mpa-v2-slate);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.step2-input,
+.step2-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--mpa-v2-paper-soft);
+  border: 1px solid var(--mpa-v2-line);
+  font-size: 14px;
+  font-family: var(--mpa-v2-font-sans);
+  color: var(--mpa-v2-ink);
+  outline: none;
+  box-sizing: border-box;
+}
+.step2-textarea {
+  font-size: 13px;
+  resize: vertical;
+}
+.step2-input:focus,
+.step2-textarea:focus {
+  border-color: var(--mpa-v2-ink);
+}
+
+.step2-custom-hint {
+  font-size: 11px;
+  color: var(--mpa-v2-slate);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+/* ─── Artwork chooser ────────────────────────────────────── */
+.step2-artwork {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.step2-art-card {
+  background: var(--mpa-v2-paper);
+  border: 1px solid var(--mpa-v2-line);
+  padding: 20px;
+  cursor: pointer;
+  font-family: var(--mpa-v2-font-sans);
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  transition: border-color .12s, opacity .15s;
+  color: var(--mpa-v2-ink);
+  text-align: left;
+  width: 100%;
+}
+
+.step2-art-card[data-active='true'] {
+  border: 2px solid var(--mpa-v2-red);
+  padding: 19px;
+}
+
+.step2-art-card[data-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.step2-art-card[data-dimmed='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.step2-art-icon {
+  margin-bottom: 12px;
+}
+
+.step2-art-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--mpa-v2-ink);
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+
+.step2-art-sub {
+  font-size: 12.5px;
+  color: var(--mpa-v2-ink-soft);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.step2-art-spacer {
+  flex: 1;
+}
+
+.step2-art-cta {
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--mpa-v2-ink);
+  border: 1px solid var(--mpa-v2-line);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  font-family: var(--mpa-v2-font-sans);
+  cursor: pointer;
+}
+.step2-art-card[data-active='true'] .step2-art-cta {
+  background: var(--mpa-v2-ink);
+  color: var(--mpa-v2-cream);
+  border-color: transparent;
+}
+
+.step2-art-waiting {
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--mpa-v2-slate);
+  border: 1px dashed var(--mpa-v2-line);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.step2-art-canva-hint {
+  font-size: 11px;
+  color: var(--mpa-v2-slate);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.step2-art-canva-hint .step2-art-link {
+  color: var(--mpa-v2-red);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.step2-art-diy-note {
+  font-size: 11px;
+  color: var(--mpa-v2-slate);
+  line-height: 1.5;
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+/* ─── Upload zone ────────────────────────────────────────── */
+.step2-upload-zone {
+  border: 1.5px dashed var(--mpa-v2-line);
+  padding: 14px;
+  text-align: center;
+  background: var(--mpa-v2-paper-soft);
+  font-size: 11.5px;
+  color: var(--mpa-v2-slate);
+  font-family: var(--mpa-v2-font-sans);
+}
+
+.step2-upload-zone--active {
+  border: 1.5px dashed var(--mpa-v2-red);
+  padding: 16px 12px;
+  background: var(--mpa-v2-red-wash);
+  cursor: pointer;
+  color: var(--mpa-v2-ink);
+}
+
+.step2-upload-zone--active .step2-upload-arrow {
+  font-size: 20px;
+  color: var(--mpa-v2-red);
+  margin-bottom: 4px;
+}
+
+.step2-upload-zone--active .step2-upload-label {
+  font-size: 12px;
+  color: var(--mpa-v2-ink);
+  font-weight: 600;
+}
+
+.step2-upload-accepted {
+  border: 1px solid var(--mpa-v2-line);
+  padding: 12px;
+  background: var(--mpa-v2-paper-soft);
+  font-family: var(--mpa-v2-font-sans);
+}
+
+.step2-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step2-upload-check {
+  width: 20px;
+  height: 20px;
+  background: #2E7D4F;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step2-upload-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.step2-upload-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mpa-v2-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mpa-v2-font-mono);
+}
+
+.step2-upload-size {
+  font-size: 10.5px;
+  color: var(--mpa-v2-slate);
+  font-family: var(--mpa-v2-font-mono);
+}
+
+.step2-upload-replace {
+  width: 100%;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid var(--mpa-v2-line);
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--mpa-v2-ink);
+  cursor: pointer;
+  font-family: var(--mpa-v2-font-sans);
+}
+
+/* ─── Sidebar ────────────────────────────────────────────── */
+.step2-sidebar {
+  padding: 28px;
+  border-left: 1px solid var(--mpa-v2-line);
+  display: flex;
+  flex-direction: column;
+  background: var(--mpa-v2-paper-soft);
+  overflow-y: auto;
+}
+
+.step2-sidebar-title {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  color: var(--mpa-v2-ink);
+}
+
+.step2-sidebar-sub {
+  font-size: 11px;
+  color: var(--mpa-v2-slate);
+  margin-bottom: 18px;
+}
+
+.step2-summary-list {
+  border-top: 1px solid var(--mpa-v2-line);
+}
+
+.step2-summary-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--mpa-v2-line-soft);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.step2-summary-label {
+  font-size: 11px;
+  color: var(--mpa-v2-slate);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.step2-summary-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mpa-v2-ink);
+  text-align: right;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.step2-summary-value[data-muted='true'] {
+  color: var(--mpa-v2-slate);
+  font-style: italic;
+}
+
+.step2-design-badge {
+  margin-top: 12px;
+  padding: 8px 10px;
+  background: var(--mpa-v2-red-wash);
+  border: 1px solid var(--mpa-v2-red-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+}
+.step2-design-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--mpa-v2-red);
+}
+.step2-design-badge-text {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--mpa-v2-red);
+  text-transform: uppercase;
+}
+
+.step2-quoted-panel {
+  margin-top: 18px;
+  padding: 14px;
+  background: var(--mpa-v2-paper);
+  border: 1px solid var(--mpa-v2-line-soft);
+}
+
+.step2-quoted-panel-body {
+  font-size: 12px;
+  color: var(--mpa-v2-ink-soft);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.step2-sidebar-grow {
+  flex: 1;
+  min-height: 20px;
+}
+
+.step2-cta {
+  margin-top: 20px;
+  background: var(--mpa-v2-red);
+  border: none;
+  color: #fff;
+  padding: 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: var(--mpa-v2-font-sans);
+  box-shadow: var(--mpa-v2-shadow-cta-red-desktop);
+  width: 100%;
+}
+.step2-cta[disabled],
+.step2-cta[data-disabled='true'] {
+  background: var(--mpa-v2-line);
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.step2-cta-hint {
+  font-size: 11px;
+  color: var(--mpa-v2-slate);
+  text-align: center;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.step2-back {
+  margin-top: 6px;
+  background: transparent;
+  border: none;
+  color: var(--mpa-v2-slate);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--mpa-v2-font-sans);
+  padding: 8px;
+  width: 100%;
+  text-align: center;
+}
+
+/* Custom-summary sidebar */
+.step2-custom-dims {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  margin-top: 4px;
+  margin-bottom: 18px;
+  color: var(--mpa-v2-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.step2-custom-panel-side {
+  padding: 18px;
+  background: var(--mpa-v2-paper);
+  border: 1px solid var(--mpa-v2-line);
+}
+.step2-custom-panel-side-body {
+  font-size: 12.5px;
+  color: var(--mpa-v2-ink-soft);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .step2-root {
+    grid-template-columns: 1fr;
+  }
+  .step2-main {
+    padding: 20px 18px;
+  }
+  .step2-title {
+    font-size: 26px;
+  }
+  .step2-sizes {
+    grid-template-columns: 1fr 1fr;
+  }
+  .step2-artwork {
+    grid-template-columns: 1fr;
+  }
+  .step2-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--mpa-v2-line);
+    padding: 22px 18px;
+  }
+}

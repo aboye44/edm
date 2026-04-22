@@ -98,6 +98,14 @@ export default function Step1Plan() {
   const hhAnim = useCountUp(totals.hh, 400);
   const costAnim = useCountUp(Math.round(totals.cost), 400);
 
+  // Persist total HH so Step 2's sidebar can render qty without re-fetching routes.
+  useEffect(() => {
+    if (totals.hh !== state.totalHH) {
+      update({ totalHH: totals.hh });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totals.hh]);
+
   // ── Handlers ────────────────────────────────────────────────────
   const handleZipChange = async (zip) => {
     if (state.zips.includes(zip)) return;
