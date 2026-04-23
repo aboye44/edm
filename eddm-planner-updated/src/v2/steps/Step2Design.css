@@ -258,8 +258,14 @@
 }
 
 .step2-art-card[data-dimmed='true'] {
-  opacity: 0.4;
-  cursor: not-allowed;
+  /* Visually indicate "not needed" but still clickable — users can
+     always change their mind by clicking a dimmed card. */
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.step2-art-card[data-dimmed='true']:hover {
+  opacity: 0.8;
 }
 
 .step2-art-icon {

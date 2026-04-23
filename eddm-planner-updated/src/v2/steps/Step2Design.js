@@ -358,8 +358,11 @@ function CanvaArtworkCard({
   const disabled = !tpl;
   const sizeDisplay = selectedSize ? selectedSize.replace('x', ' × ') : '';
 
+  // Click/keyboard always switches selection — dimming is an informational
+  // hint ("you picked something else, this isn't needed") not a lock.
+  // Users can always change their mind by clicking a dimmed card.
   const handleCardClick = () => {
-    if (disabled || dimmed) return;
+    if (disabled) return;
     onClick();
   };
 
@@ -371,16 +374,19 @@ function CanvaArtworkCard({
       data-dimmed={(!disabled && dimmed) ? 'true' : 'false'}
       onClick={handleCardClick}
       onDragOver={(e) => {
-        if (disabled || dimmed || !active) return;
+        // File drop still requires the card to be the active selection —
+        // a drop onto a dimmed card would silently route to the wrong
+        // intent. Click to activate first, then drop.
+        if (disabled || !active) return;
         e.preventDefault();
         setIsDragOver(true);
       }}
       onDragLeave={() => setIsDragOver(false)}
-      onDrop={(e) => { if (!disabled && !dimmed && active) onDrop(e); }}
+      onDrop={(e) => { if (!disabled && active) onDrop(e); }}
       role="button"
       tabIndex={disabled ? -1 : 0}
       onKeyDown={(e) => {
-        if (disabled || dimmed) return;
+        if (disabled) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onClick();
@@ -509,18 +515,18 @@ function UploadArtworkCard({
       className="step2-art-card"
       data-active={active ? 'true' : 'false'}
       data-dimmed={dimmed ? 'true' : 'false'}
-      onClick={() => { if (!dimmed) onClick(); }}
+      onClick={onClick}
       onDragOver={(e) => {
-        if (dimmed) return;
+        // File drop still requires the card to be active.
+        if (!active) return;
         e.preventDefault();
         setIsDragOver(true);
       }}
       onDragLeave={() => setIsDragOver(false)}
-      onDrop={(e) => { if (!dimmed) onDrop(e); }}
+      onDrop={(e) => { if (active) onDrop(e); }}
       role="button"
-      tabIndex={dimmed ? -1 : 0}
+      tabIndex={0}
       onKeyDown={(e) => {
-        if (dimmed) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onClick();
@@ -610,11 +616,10 @@ function DIYArtworkCard({ active, dimmed, onClick }) {
       className="step2-art-card"
       data-active={active ? 'true' : 'false'}
       data-dimmed={dimmed ? 'true' : 'false'}
-      onClick={() => { if (!dimmed) onClick(); }}
+      onClick={onClick}
       role="button"
-      tabIndex={dimmed ? -1 : 0}
+      tabIndex={0}
       onKeyDown={(e) => {
-        if (dimmed) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onClick();
@@ -642,11 +647,10 @@ function QuoteOnlyArtworkCard({ active, dimmed, onClick }) {
       className="step2-art-card"
       data-active={active ? 'true' : 'false'}
       data-dimmed={dimmed ? 'true' : 'false'}
-      onClick={() => { if (!dimmed) onClick(); }}
+      onClick={onClick}
       role="button"
-      tabIndex={dimmed ? -1 : 0}
+      tabIndex={0}
       onKeyDown={(e) => {
-        if (dimmed) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onClick();
