@@ -1,8 +1,16 @@
 // Vercel Serverless Function — submit-quote-request
 //
-// Receives EDDM v2 Step 3 quote submissions and emails them to
-// orders@mailpro.org via SendGrid. Native fetch only (Node 18+) — no npm
-// dep on @sendgrid/mail, matches the eddm-routes.js pattern next door.
+// Receives EDDM v2 Step 3 quote submissions and sends TWO emails via
+// SendGrid, in parallel:
+//   1. Internal notification → orders@mailpro.org (with artwork attached,
+//      reply-to = customer). This is the critical path — if it fails the
+//      endpoint returns 502 and the user sees an error.
+//   2. Customer confirmation → the submitter. Fire-and-forget; a failure
+//      here is logged but does NOT fail the request (internal team still
+//      got the lead).
+//
+// Native fetch only (Node 18+) — no npm dep on @sendgrid/mail, matches
+// the eddm-routes.js pattern next door.
 //
 // ─── Required environment variables ───
 //   SENDGRID_API_KEY     Full-access or restricted-access key with "Mail
@@ -18,13 +26,12 @@
 //   SENDGRID_TO_EMAIL    Internal inbox that receives the quote request.
 //                        Defaults to 'orders@mailpro.org'.
 //
-// The customer's address is used as the reply_to so staff can hit "Reply"
-// in Outlook and land straight in the customer's inbox.
+// The customer's address is used as the reply_to on the internal email
+// so staff can hit "Reply" in Outlook and land straight in the customer's
+// inbox. The customer confirmation email is sent FROM orders@mailpro.org
+// so their reply lands in the orders inbox too.
 //
 // ─── What this function does NOT do ───
-//   - It does not send the customer a confirmation email. That's a
-//     follow-up pass; for now this is one email to the internal orders
-//     inbox only.
 //   - It does not validate the attachment byte count — the client-side
 //     enforces the 4 MB cap (see src/v2/steps/Step3Review.js). A larger
 //     payload will be rejected by Vercel (4.5 MB body limit) before this
@@ -128,11 +135,11 @@ export default async function handler(req, res) {
     notes: (payload.notes || '').trim(),
   };
 
-  const textBody = buildTextBody(ctx);
-  const htmlBody = buildHtmlBody(ctx);
+  const internalText = buildTextBody(ctx);
+  const internalHtml = buildHtmlBody(ctx);
 
-  // ─── SendGrid payload ───
-  const sgPayload = {
+  // ─── Internal-email SendGrid payload (goes to orders@) ───
+  const internalSgPayload = {
     personalizations: [
       {
         to: [{ email: toEmail }],
@@ -142,13 +149,13 @@ export default async function handler(req, res) {
     from: { email: fromEmail, name: 'MailPro Quote Form' },
     reply_to: { email: customerEmail, name: customerName },
     content: [
-      { type: 'text/plain', value: textBody },
-      { type: 'text/html', value: htmlBody },
+      { type: 'text/plain', value: internalText },
+      { type: 'text/html', value: internalHtml },
     ],
   };
 
   if (artwork && typeof artwork.base64 === 'string' && artwork.base64.length > 0) {
-    sgPayload.attachments = [
+    internalSgPayload.attachments = [
       {
         content: artwork.base64,
         filename: artwork.filename || 'artwork.pdf',
@@ -158,40 +165,92 @@ export default async function handler(req, res) {
     ];
   }
 
-  // ─── POST to SendGrid ───
-  try {
-    const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+  // ─── Customer-confirmation SendGrid payload (goes to submitter) ───
+  // First name only for the greeting — falls back to full name if the
+  // name was a single token. Reply-to defaults to `from` (orders@) so a
+  // reply lands in the orders inbox.
+  const firstName = customerName.split(/\s+/)[0] || customerName;
+  const customerText = buildCustomerTextBody({ firstName, areaSummary, pieceSummary, design });
+  const customerHtml = buildCustomerHtmlBody({ firstName, areaSummary, pieceSummary, design });
+  const customerSgPayload = {
+    personalizations: [
+      {
+        to: [{ email: customerEmail, name: customerName }],
+        subject: 'We got your EDDM quote request',
       },
-      body: JSON.stringify(sgPayload),
-    });
+    ],
+    from: { email: fromEmail, name: 'MailPro' },
+    content: [
+      { type: 'text/plain', value: customerText },
+      { type: 'text/html', value: customerHtml },
+    ],
+  };
 
-    if (resp.status === 202) {
-      return res.status(200).json({ success: true });
-    }
+  // ─── Fire both sends in parallel ───
+  // Internal is the critical path; customer confirmation is best-effort.
+  const [internalResult, customerResult] = await Promise.allSettled([
+    sendViaSendGrid(apiKey, internalSgPayload, 'internal'),
+    sendViaSendGrid(apiKey, customerSgPayload, 'customer'),
+  ]);
 
-    // Non-202 — log server-side, surface short message to client. Don't
-    // echo the raw SendGrid body (can include key hints / internal detail).
-    const text = await resp.text();
-    console.error(
-      `[submit-quote-request] SendGrid ${resp.status}:`,
-      text.slice(0, 800)
-    );
+  const internalOk =
+    internalResult.status === 'fulfilled' && internalResult.value.ok;
+
+  if (!internalOk) {
+    const detail =
+      internalResult.status === 'rejected'
+        ? internalResult.reason?.message || 'network error'
+        : `SendGrid ${internalResult.value.status}`;
     return res.status(502).json({
       success: false,
-      error: `Email delivery rejected by SendGrid (${resp.status}). Check Vercel function logs for detail.`,
-    });
-  } catch (err) {
-    console.error('[submit-quote-request] Fetch failed:', err && err.message);
-    return res.status(502).json({
-      success: false,
-      error: 'Failed to reach SendGrid',
-      message: err && err.message,
+      error: `Email delivery rejected (${detail}). Check Vercel function logs for detail.`,
     });
   }
+
+  // Customer email failures are non-fatal — the internal team already
+  // has the lead. Just log so we can audit delivery issues later.
+  const customerOk =
+    customerResult.status === 'fulfilled' && customerResult.value.ok;
+  if (!customerOk) {
+    const detail =
+      customerResult.status === 'rejected'
+        ? customerResult.reason?.message || 'network error'
+        : `SendGrid ${customerResult.value.status}`;
+    console.warn(
+      `[submit-quote-request] Customer confirmation failed (non-fatal): ${detail}`
+    );
+  }
+
+  return res.status(200).json({
+    success: true,
+    customerConfirmed: customerOk,
+  });
+}
+
+// ─── SendGrid helper ──────────────────────────────────────
+
+async function sendViaSendGrid(apiKey, payload, tag) {
+  const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (resp.status === 202) {
+    return { ok: true, status: 202 };
+  }
+
+  // Non-202 — log the body for diagnostics. Don't throw; let the caller
+  // decide whether this is fatal.
+  const text = await resp.text().catch(() => '');
+  console.error(
+    `[submit-quote-request:${tag}] SendGrid ${resp.status}:`,
+    text.slice(0, 800)
+  );
+  return { ok: false, status: resp.status, body: text };
 }
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -412,4 +471,88 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// ─── Customer confirmation email ──────────────────────────
+
+function describeDesignForCustomer(design) {
+  if (!design || !design.path) return '';
+  switch (design.path) {
+    case 'canva':
+      return 'Canva template';
+    case 'upload':
+      return 'Your uploaded artwork';
+    case 'design-for-me':
+    case 'diy':
+      return "We'll design it for you";
+    case 'quote-only':
+      return 'Pricing only — no design yet';
+    default:
+      return '';
+  }
+}
+
+function buildCustomerTextBody({ firstName, areaSummary, pieceSummary, design }) {
+  const designLabel = describeDesignForCustomer(design);
+  const lines = [];
+  lines.push(`Hi ${firstName},`);
+  lines.push('');
+  lines.push(
+    'Thanks — we received your EDDM quote request. A MailPro print strategist ' +
+    'will email you pricing within one business day.'
+  );
+  lines.push('');
+  lines.push('Your campaign:');
+  if (areaSummary) lines.push(`  • Area: ${areaSummary}`);
+  if (pieceSummary && pieceSummary !== 'Size TBD') lines.push(`  • Piece: ${pieceSummary}`);
+  if (designLabel) lines.push(`  • Design: ${designLabel}`);
+  lines.push('');
+  lines.push(
+    'If you need to move fast, call us at (863) 687-6945 or just reply to this email.'
+  );
+  lines.push('');
+  lines.push('— The MailPro team');
+  lines.push('orders@mailpro.org');
+  return lines.join('\n');
+}
+
+function buildCustomerHtmlBody({ firstName, areaSummary, pieceSummary, design }) {
+  const designLabel = describeDesignForCustomer(design);
+  const bullet = (label, value) => `
+    <li style="margin:4px 0;font-size:14px;color:#0A1628;">
+      <span style="color:#64748B;">${escapeHtml(label)}:</span> ${escapeHtml(value)}
+    </li>`;
+  const bullets = [
+    areaSummary ? bullet('Area', areaSummary) : '',
+    pieceSummary && pieceSummary !== 'Size TBD' ? bullet('Piece', pieceSummary) : '',
+    designLabel ? bullet('Design', designLabel) : '',
+  ].join('');
+
+  return `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:24px;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0A1628;">
+  <div style="max-width:560px;margin:0 auto;">
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 20px;">
+      Thanks — we received your EDDM quote request. A MailPro print strategist
+      will email you pricing <strong>within one business day</strong>.
+    </p>
+    ${bullets ? `
+    <div style="margin:0 0 20px;padding:16px 20px;background:#F5F2EB;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#D64045;margin-bottom:8px;">Your campaign</div>
+      <ul style="list-style:none;padding:0;margin:0;">${bullets}</ul>
+    </div>` : ''}
+    <p style="font-size:15px;line-height:1.6;margin:0 0 20px;">
+      If you need to move fast, call us at
+      <a href="tel:+18636876945" style="color:#D64045;font-weight:600;">(863) 687-6945</a>
+      or just reply to this email.
+    </p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+    <p style="font-size:14px;line-height:1.6;color:#64748B;margin:0;">
+      — The MailPro team<br/>
+      <a href="mailto:orders@mailpro.org" style="color:#64748B;">orders@mailpro.org</a>
+    </p>
+  </div>
+</body>
+</html>`;
 }
