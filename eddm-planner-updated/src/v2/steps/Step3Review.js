@@ -72,14 +72,12 @@ export default function Step3Review() {
         ? 'Enter a valid email address'
         : '',
     phone: !phone.trim() ? 'Phone is required' : '',
-    company: !company.trim() ? 'Company is required' : '',
   };
 
   const canSubmit =
     !fieldErrors.name &&
     !fieldErrors.email &&
     !fieldErrors.phone &&
-    !fieldErrors.company &&
     submitState !== 'sending';
 
   const markTouched = (key) => setTouched((t) => ({ ...t, [key]: true }));
@@ -93,12 +91,11 @@ export default function Step3Review() {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     // Mark all required fields touched so errors render on a blind-click.
-    setTouched({ name: true, email: true, phone: true, company: true });
+    setTouched({ name: true, email: true, phone: true });
     if (
       fieldErrors.name ||
       fieldErrors.email ||
-      fieldErrors.phone ||
-      fieldErrors.company
+      fieldErrors.phone
     ) {
       return;
     }
@@ -320,6 +317,7 @@ export default function Step3Review() {
               <div className="step3-field step3-field-full">
                 <label className="step3-label" htmlFor="step3-company">
                   Company
+                  <span className="step3-label-hint">optional</span>
                 </label>
                 <input
                   id="step3-company"
@@ -328,13 +326,7 @@ export default function Step3Review() {
                   autoComplete="organization"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
-                  onBlur={() => markTouched('company')}
-                  data-invalid={showErr('company') ? 'true' : 'false'}
-                  required
                 />
-                {showErr('company') && (
-                  <div className="step3-field-error">{fieldErrors.company}</div>
-                )}
               </div>
 
               <div className="step3-field step3-field-full">
