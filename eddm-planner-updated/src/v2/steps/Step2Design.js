@@ -30,7 +30,7 @@ function truncate(s, max) {
 
 export default function Step2Design() {
   const navigate = useNavigate();
-  const { state, update } = usePlanner();
+  const { state, update, setUploadedFileBlob } = usePlanner();
   const uploadCardRef = useRef(null);
   const fileInputRef = useRef(null);
   const canvaFileInputRef = useRef(null);
@@ -74,7 +74,17 @@ export default function Step2Design() {
       // after quote submission, not in the browser.
     }
     const sizeStr = formatSize(file.size);
-    update({ uploadedFile: { name: file.name, size: sizeStr } });
+    // Stash the raw File in memory so Step 3 can base64-encode + attach it.
+    // localStorage can't hold a File so only metadata persists.
+    setUploadedFileBlob(file);
+    update({
+      uploadedFile: {
+        name: file.name,
+        size: sizeStr,
+        bytes: file.size,
+        mimeType: file.type || 'application/octet-stream',
+      },
+    });
     setArtwork('upload');
   };
 
@@ -82,7 +92,15 @@ export default function Step2Design() {
   const handleCanvaFile = (file) => {
     if (!file) return;
     const sizeStr = formatSize(file.size);
-    update({ uploadedFile: { name: file.name, size: sizeStr } });
+    setUploadedFileBlob(file);
+    update({
+      uploadedFile: {
+        name: file.name,
+        size: sizeStr,
+        bytes: file.size,
+        mimeType: file.type || 'application/octet-stream',
+      },
+    });
     setArtwork('canva');
   };
 
@@ -183,7 +201,7 @@ export default function Step2Design() {
                 onClick={() => setArtwork('canva')}
                 onPickFile={handleCanvaFile}
                 onOpenFileDialog={openCanvaDialog}
-                onClear={() => update({ uploadedFile: null })}
+                onClear={() => { setUploadedFileBlob(null); update({ uploadedFile: null }); }}
                 onDrop={handleCanvaDrop}
               />
               <UploadArtworkCard
@@ -197,7 +215,7 @@ export default function Step2Design() {
                 onClick={() => setArtwork('upload')}
                 onPickFile={handleUploadFile}
                 onOpenFileDialog={openUploadDialog}
-                onClear={() => update({ uploadedFile: null })}
+                onClear={() => { setUploadedFileBlob(null); update({ uploadedFile: null }); }}
                 onDrop={handleUploadDrop}
               />
               <DIYArtworkCard

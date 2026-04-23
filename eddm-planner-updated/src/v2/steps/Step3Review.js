@@ -19,9 +19,16 @@ import './Step3Review.css';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Attachments are base64-encoded before POST; SendGrid limits a full API
+// payload (message + attachments) to 30 MB and base64 inflates raw bytes
+// by ~33%, but more importantly Netlify Functions have their own body-size
+// ceilings. A 4 MB raw cap keeps us well under both while still allowing
+// most print-ready postcard PDFs through without trouble.
+const MAX_ARTWORK_BYTES = 4 * 1024 * 1024;
+
 export default function Step3Review() {
   const navigate = useNavigate();
-  const { state, update } = usePlanner();
+  const { state, update, getUploadedFileBlob } = usePlanner();
 
   const {
     zips,
@@ -100,6 +107,23 @@ export default function Step3Review() {
       return;
     }
 
+    // Read the raw File (stashed in-memory by Step 2). If present, enforce
+    // the 4 MB cap BEFORE we do any network work — the user doesn't need to
+    // wait on a slow base64 of a file we're going to reject anyway.
+    const fileBlob = typeof getUploadedFileBlob === 'function'
+      ? getUploadedFileBlob()
+      : null;
+
+    if (fileBlob && fileBlob.size > MAX_ARTWORK_BYTES) {
+      setSubmitState('error');
+      setSubmitError(
+        "Your artwork file is larger than 4 MB. Please email it to " +
+        "orders@mailpro.org after submitting this form, or compress it " +
+        "and try again."
+      );
+      return;
+    }
+
     setSubmitState('sending');
     setSubmitError('');
 
@@ -114,6 +138,29 @@ export default function Step3Review() {
         company: company.trim(),
       },
     });
+
+    // If there's a file, read it to base64 first. Fail gracefully — a bad
+    // read shouldn't nuke the whole submission, but the user needs to know
+    // the attachment isn't going through so they can follow up manually.
+    let artwork = null;
+    if (fileBlob) {
+      try {
+        const base64 = await readFileAsBase64(fileBlob);
+        artwork = {
+          filename: fileBlob.name,
+          mimeType: fileBlob.type || 'application/octet-stream',
+          size: fileBlob.size,
+          base64,
+        };
+      } catch (readErr) {
+        setSubmitState('error');
+        setSubmitError(
+          "We couldn't read your artwork file. Try re-picking it, or " +
+          "submit without the file and email it to orders@mailpro.org."
+        );
+        return;
+      }
+    }
 
     const payload = {
       submittedAt: new Date().toISOString(),
@@ -131,9 +178,11 @@ export default function Step3Review() {
             : null,
       },
       design: {
+        // Keep filename for back-compat with anyone reading the payload shape.
         path: artworkPath || null,
         filename: uploadedFile?.name || null,
       },
+      artwork,
       contact: {
         name: trimmedName,
         email: email.trim(),
@@ -482,4 +531,37 @@ function formatCustomSize(customSize) {
 function truncate(s, max) {
   if (!s) return '';
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/**
+ * Read a File into a base64 string (no `data:*;base64,` prefix).
+ *
+ * Uses FileReader.readAsDataURL + strips the prefix because that path is
+ * widely supported and avoids the binary-string-vs-ArrayBuffer dance of
+ * readAsArrayBuffer + btoa. The prefix is a predictable `data:<mime>;base64,`
+ * chunk terminated by a single comma, so slicing past the first comma is
+ * safe across browsers.
+ */
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        const commaIdx = result.indexOf(',');
+        if (commaIdx === -1) {
+          // No comma means the reader didn't produce a data URL — bail
+          // rather than attach garbage.
+          reject(new Error('Unexpected FileReader result'));
+          return;
+        }
+        resolve(result.slice(commaIdx + 1));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error('FileReader failed'));
+    reader.onabort = () => reject(new Error('FileReader aborted'));
+    reader.readAsDataURL(file);
+  });
 }

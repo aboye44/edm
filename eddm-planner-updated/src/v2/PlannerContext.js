@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useRef, useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'eddm_v2_state';
 
@@ -16,7 +16,7 @@ const defaultState = {
   size: null,                  // '6.25x9' | '6.25x11' | '8.5x11' | 'custom'
   customSize: { w: '', h: '', note: '' },
   artworkPath: null,           // 'canva' | 'upload' | 'design-for-me'
-  uploadedFile: null,          // { name, size } — just metadata
+  uploadedFile: null,          // { name, size } — serializable metadata (localStorage-safe)
   // Step 3 — Review
   campaignName: '',
   contact: { firstName: '', lastName: '', email: '', phone: '', company: '' },
@@ -34,6 +34,12 @@ export function PlannerProvider({ children }) {
     return defaultState;
   });
 
+  // In-memory File object — never localStorage-serialized (Files can't be),
+  // but Step 3 reads it to base64-encode and attach to the quote email.
+  // Cleared on page refresh — that's acceptable since the user is walking
+  // through Steps 2 → 3 in a single session.
+  const uploadedFileBlobRef = useRef(null);
+
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -41,10 +47,28 @@ export function PlannerProvider({ children }) {
   }, [state]);
 
   const update = (patch) => setState((prev) => ({ ...prev, ...patch }));
-  const reset = () => setState(defaultState);
+  const reset = () => {
+    uploadedFileBlobRef.current = null;
+    setState(defaultState);
+  };
+
+  // Setter + getter for the in-memory File. Exposed on context so Step 2
+  // can stash it and Step 3 can read it for base64 encoding.
+  const setUploadedFileBlob = (file) => {
+    uploadedFileBlobRef.current = file || null;
+  };
+  const getUploadedFileBlob = () => uploadedFileBlobRef.current;
 
   return (
-    <PlannerContext.Provider value={{ state, update, reset }}>
+    <PlannerContext.Provider
+      value={{
+        state,
+        update,
+        reset,
+        setUploadedFileBlob,
+        getUploadedFileBlob,
+      }}
+    >
       {children}
     </PlannerContext.Provider>
   );
