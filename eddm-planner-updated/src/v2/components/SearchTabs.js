@@ -46,6 +46,9 @@ export default function SearchTabs({
   startOverArmed = false,
   geocoding = false,
   showInvalid = false,
+  // P1-6: parent passes a ref to the ZIP input so it can focus it
+  // directly from "+ Add another ZIP" without document.querySelector.
+  zipInputRef,
 }) {
   // ── ZIP tab state ──
   const [zipVal, setZipVal] = useState('');
@@ -54,6 +57,10 @@ export default function SearchTabs({
   // ── Radius tab state ──
   const [addressVal, setAddressVal] = useState('');
   const autocompleteRef = useRef(null);
+  // P1-2: track whether the user has submitted the radius form at least
+  // once so we can show an inline hint when they typed an address but
+  // didn't pick from the dropdown (previously: silent no-op on Search).
+  const [addressTouched, setAddressTouched] = useState(false);
 
   const zipTrimmed = zipVal.trim();
   const zipOk = /^\d{5}$/.test(zipTrimmed);
@@ -113,6 +120,9 @@ export default function SearchTabs({
 
     if (lat != null && lng != null) {
       setAddressVal(label);
+      // P1-2: clear the touched flag once we have a valid place — hint
+      // should only appear when the user submitted without a selection.
+      setAddressTouched(false);
       // Auto-submit on selection — user picked an autocomplete result,
       // no need to click SEARCH again.
       dispatchRadius({ lat, lng }, label, zip);
@@ -121,6 +131,10 @@ export default function SearchTabs({
 
   const submitRadius = (e) => {
     if (e) e.preventDefault();
+    // P1-2: mark touched so the inline hint can render if we can't
+    // resolve a place. Previously this silently no-op'd when the user
+    // typed an address but never picked from the dropdown.
+    setAddressTouched(true);
     // If the user typed freely without picking from autocomplete, geocode
     // via the Places service result cached on the autocomplete widget (if
     // any). Otherwise we rely on handlePlaceChanged having already fired.
@@ -132,8 +146,19 @@ export default function SearchTabs({
       handlePlaceChanged();
       return;
     }
-    // No resolved place — no-op. Autocomplete will fire on selection.
+    // No resolved place — hint will render via the derived addressShowHint
+    // flag below. Autocomplete will fire on selection and hide the hint.
   };
+
+  // P1-2: when the user picks from the autocomplete dropdown the hint
+  // should disappear. handlePlaceChanged also updates addressVal.
+  const addressShowHint = (() => {
+    if (!addressTouched) return false;
+    if (!addressVal.trim()) return false;
+    const ac = autocompleteRef.current;
+    const place = ac ? ac.getPlace() : null;
+    return !(place && place.geometry?.location);
+  })();
 
   const setMode = (next) => {
     if (onModeChange) onModeChange(next);
@@ -226,6 +251,7 @@ export default function SearchTabs({
               onChange={(e) => setZipVal(e.target.value)}
               aria-label="5-digit ZIP code"
               aria-invalid={zipShowError}
+              ref={zipInputRef}
             />
             <button type="submit" className="v2-search-submit-btn">
               {geocoding ? 'Searching...' : 'Search'}
@@ -278,8 +304,14 @@ export default function SearchTabs({
                 type="text"
                 value={addressVal}
                 placeholder="430 N Washington Ave, Lakeland FL"
-                onChange={(e) => setAddressVal(e.target.value)}
+                onChange={(e) => {
+                  setAddressVal(e.target.value);
+                  // P1-2: reset touched on edit so the "pick a suggestion"
+                  // hint clears as soon as the user starts typing again.
+                  if (addressTouched) setAddressTouched(false);
+                }}
                 aria-label="Address"
+                aria-invalid={addressShowHint}
               />
             </Autocomplete>
             <select
@@ -301,6 +333,11 @@ export default function SearchTabs({
               Search
             </button>
           </div>
+          {addressShowHint && (
+            <div className="v2-search-error">
+              Pick a suggestion from the dropdown to search.
+            </div>
+          )}
         </form>
       )}
     </div>

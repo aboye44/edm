@@ -320,6 +320,31 @@ export default function useRoutes(initialZips = null) {
   }, []);
 
   /**
+   * Sequential multi-ZIP fetch. Used on rehydrate (restore from
+   * localStorage) so we don't abort previous fetches mid-flight —
+   * fetchZip shares a single abortRef, so a parallel `forEach(fetchZip)`
+   * cancels every request except the last one.
+   *
+   * Awaits each fetch in order; only ZIPs not already loaded are fetched.
+   */
+  const fetchZips = useCallback(
+    async (zips) => {
+      if (!Array.isArray(zips) || zips.length === 0) return { ok: true, fetched: [] };
+      const fetched = [];
+      for (const zip of zips) {
+        if (fetchedZipsRef.current.has(zip)) continue;
+        // Sequential await: next fetchZip call won't abort the prior
+        // one because the prior one has already completed.
+        // eslint-disable-next-line no-await-in-loop
+        const r = await fetchZip(zip);
+        fetched.push({ zip, ok: r?.ok !== false });
+      }
+      return { ok: true, fetched };
+    },
+    [fetchZip]
+  );
+
+  /**
    * Phase 5.2 — Radius-based route discovery.
    *
    * When user picks an address + radius, we need to load routes for EVERY
@@ -359,11 +384,14 @@ export default function useRoutes(initialZips = null) {
   );
 
   // Optional auto-fetch on mount / when initialZips changes shallowly.
+  // Uses sequential fetch so multi-ZIP restores don't abort each other.
   useEffect(() => {
     if (!Array.isArray(initialZips) || initialZips.length === 0) return;
-    initialZips.forEach((zip) => {
-      if (!fetchedZipsRef.current.has(zip)) fetchZip(zip);
-    });
+    const toFetch = initialZips.filter(
+      (zip) => !fetchedZipsRef.current.has(zip)
+    );
+    if (toFetch.length === 0) return;
+    fetchZips(toFetch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Array.isArray(initialZips) ? initialZips.join(',') : '']);
 
@@ -383,6 +411,7 @@ export default function useRoutes(initialZips = null) {
     radiusLoading,
     error,
     fetchZip,
+    fetchZips,
     fetchRadius,
     removeZip,
     clearRoutes,

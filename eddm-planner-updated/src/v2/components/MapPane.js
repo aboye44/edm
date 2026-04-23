@@ -133,6 +133,12 @@ export default function MapPane({
   const circleRef = useRef(null);
   const [hovered, setHovered] = useState(null);
   const tilesLoadedRef = useRef(false);
+  // P1-4: track the tile-fail timer at the component level so unmount
+  // can clear it. Previously the timer was stashed on map.__v2_tile_watch
+  // and had no unmount cleanup, so navigating away during the 12s window
+  // could fire onTilesFail on an unmounted parent.
+  const tileFailTimerRef = useRef(null);
+  const tileListenerRef = useRef(null);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -148,21 +154,45 @@ export default function MapPane({
     // Fire tiles-fail if tiles never load within 12 seconds. The Google Maps
     // JS API doesn't expose a reliable error event for tile failure, so we
     // use a timeout + the `tilesloaded` event as a heuristic.
-    const timer = setTimeout(() => {
+    tileFailTimerRef.current = setTimeout(() => {
       if (!tilesLoadedRef.current && onTilesFail) {
         onTilesFail();
       }
+      tileFailTimerRef.current = null;
     }, 12000);
 
-    const listener = map.addListener('tilesloaded', () => {
+    tileListenerRef.current = map.addListener('tilesloaded', () => {
       tilesLoadedRef.current = true;
-      clearTimeout(timer);
+      if (tileFailTimerRef.current) {
+        clearTimeout(tileFailTimerRef.current);
+        tileFailTimerRef.current = null;
+      }
     });
-
-    // Store cleanup on the map object itself so we can pull it off later if
-    // the map unmounts.
-    map.__v2_tile_watch = { timer, listener };
   };
+
+  // P1-4: clean up the tile-fail timer + listener on unmount so they
+  // can't fire after the component is gone.
+  useEffect(() => {
+    return () => {
+      if (tileFailTimerRef.current) {
+        clearTimeout(tileFailTimerRef.current);
+        tileFailTimerRef.current = null;
+      }
+      if (tileListenerRef.current) {
+        try {
+          const G = typeof window !== 'undefined' ? window.google : null;
+          if (G?.maps?.event?.removeListener) {
+            G.maps.event.removeListener(tileListenerRef.current);
+          } else if (typeof tileListenerRef.current.remove === 'function') {
+            tileListenerRef.current.remove();
+          }
+        } catch (_) {
+          // ignore — listener may have auto-detached when map was destroyed
+        }
+        tileListenerRef.current = null;
+      }
+    };
+  }, []);
 
   // ─── Radius mode: auto-select routes intersecting the circle ───
   const autoSelectRadius = useCallback(

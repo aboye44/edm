@@ -32,6 +32,7 @@ export default function Step1Plan() {
     loading,
     error,
     fetchZip,
+    fetchZips,
     fetchRadius,
     removeZip: removeZipRoutes,
     clearRoutes,
@@ -52,11 +53,20 @@ export default function Step1Plan() {
   const [circleCenter, setCircleCenter] = useState(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [tilesFailDismissed, setTilesFailDismissed] = useState(false);
+  // P1-3: remounting the map pane on tile-retry replaces window.location.reload()
+  // so unsaved form state (selected routes, campaign name, etc.) survives the retry.
+  const [tileRetryKey, setTileRetryKey] = useState(0);
+  // P1-6: ref for the ZIP search input, used by "+ Add another ZIP" to focus
+  // instead of document.querySelector (which breaks if DOM structure shifts).
+  const zipInputRef = useRef(null);
 
-  // Sync fetched routes → auto-fetch any persisted ZIPs on mount once.
+  // Sync fetched routes - auto-fetch any persisted ZIPs on mount once.
+  // P1-1: must be sequential. fetchZip shares a single abortRef, so
+  // `forEach(fetchZip)` aborts every call except the last -> after reload
+  // only the last ZIP's routes actually land. fetchZips awaits each call.
   useEffect(() => {
     if (state.zips && state.zips.length > 0) {
-      state.zips.forEach((zip) => fetchZip(zip));
+      fetchZips(state.zips);
     }
     // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,6 +126,17 @@ export default function Step1Plan() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totals.hh]);
+
+  // P1-4: clear the two-click start-over timer on unmount so it can't
+  // fire setArmStartOver on an unmounted component (React warning + leak).
+  useEffect(() => {
+    return () => {
+      if (startOverTimerRef.current) {
+        clearTimeout(startOverTimerRef.current);
+        startOverTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // ── Handlers ────────────────────────────────────────────────────
   // Auto-select ALL routes in the fetched ZIP. Users searching a ZIP
@@ -317,10 +338,13 @@ export default function Step1Plan() {
   }, []);
 
   const handleTilesRetry = () => {
+    // P1-3: remount the map via key bump instead of window.location.reload().
+    // Full reload nukes unsaved form state (selected routes, campaign name,
+    // etc.). Bumping tileRetryKey forces MapPane's container to remount,
+    // which re-triggers the Google Maps load without touching the rest of
+    // the page.
     setTilesFailed(false);
-    // Force a light reload of the map container by key.
-    setMapZoom((z) => z); // no-op; LoadScript handles retry internally
-    window.location.reload();
+    setTileRetryKey((k) => k + 1);
   };
 
   const handleTilesContinue = () => {
@@ -366,6 +390,9 @@ export default function Step1Plan() {
       {/* ── Map pane ─────────────────────────────────────────────── */}
       <div className="step1-map-pane">
         <MapPane
+          // P1-3: keying by tileRetryKey forces MapPane to remount on retry,
+          // which re-runs LoadScript without nuking the rest of the page.
+          key={`mappane-${tileRetryKey}`}
           routes={routes}
           selected={state.selected}
           onToggle={toggleRoute}
@@ -396,8 +423,13 @@ export default function Step1Plan() {
                   startOverArmed={armStartOver}
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
+                  zipInputRef={zipInputRef}
                 />
-                {state.zips.length > 0 && (
+                {/* P1-5: multi-ZIP chip row + "Add another ZIP" only makes
+                    sense in ZIP mode. In radius mode ZIPs are discovered
+                    automatically from the circle, and clicking "Add another
+                    ZIP" would do nothing useful (no ZIP input is visible). */}
+                {(state.searchMode || 'zip') === 'zip' && state.zips.length > 0 && (
                   <div className="step1-zip-chips">
                     {state.zips.map((zip) => (
                       <span key={zip} className="step1-zip-chip">
@@ -415,10 +447,9 @@ export default function Step1Plan() {
                       type="button"
                       className="step1-add-zip"
                       onClick={() => {
-                        const input = document.querySelector(
-                          '.v2-search-input-box input'
-                        );
-                        if (input) input.focus();
+                        // P1-6: focus via ref instead of document.querySelector.
+                        // Ref survives re-renders and doesn't break if DOM shifts.
+                        if (zipInputRef.current) zipInputRef.current.focus();
                       }}
                     >
                       + Add another ZIP
