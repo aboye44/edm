@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Autocomplete } from '@react-google-maps/api';
 
 /**
@@ -13,6 +13,10 @@ import { Autocomplete } from '@react-google-maps/api';
  *   - Multi-ZIP chips (shown only when mode === 'zip')
  *   - Wiring onRadiusSearch into MapPane (setting mode='radius' + circleCenter)
  *
+ * Mobile-collapsed mode: when `hasActivePlan` is true and the viewport is
+ * phone-sized, the full tab UI hides behind a compact "Change area" summary
+ * chip. This stops the search card from covering the map after search.
+ *
  * Props:
  *   mode              — 'zip' | 'radius' (controlled)
  *   onModeChange      — (mode) => void
@@ -21,6 +25,8 @@ import { Autocomplete } from '@react-google-maps/api';
  *                           zip: string | null }) => void
  *   geocoding         — boolean, shows inline loading state on ZIP tab
  *   showInvalid       — boolean, shows inline invalid-zip hint on ZIP tab
+ *   hasActivePlan     — boolean, when true on mobile collapses to a summary chip
+ *   summaryLabel      — string, e.g. "3 ZIPs · 4,200 HH" (for the mobile chip)
  */
 const RADIUS_OPTIONS = [1, 2, 3, 5, 7, 10];
 
@@ -49,6 +55,8 @@ export default function SearchTabs({
   // P1-6: parent passes a ref to the ZIP input so it can focus it
   // directly from "+ Add another ZIP" without document.querySelector.
   zipInputRef,
+  // Mobile collapse — summary label to show on the collapsed chip.
+  summaryLabel = '',
 }) {
   // ── ZIP tab state ──
   const [zipVal, setZipVal] = useState('');
@@ -61,6 +69,16 @@ export default function SearchTabs({
   // once so we can show an inline hint when they typed an address but
   // didn't pick from the dropdown (previously: silent no-op on Search).
   const [addressTouched, setAddressTouched] = useState(false);
+
+  // Mobile collapse state — auto-collapse when a plan becomes active,
+  // expand on user tap. The inner state lets us track user intent
+  // (explicit tap to reopen) separate from hasActivePlan's truthiness.
+  const [mobileOpen, setMobileOpen] = useState(!hasActivePlan);
+  useEffect(() => {
+    // When a plan becomes active (first routes arrive), auto-collapse.
+    // When it goes away (start over), auto-expand.
+    setMobileOpen(!hasActivePlan);
+  }, [hasActivePlan]);
 
   const zipTrimmed = zipVal.trim();
   const zipOk = /^\d{5}$/.test(zipTrimmed);
@@ -164,182 +182,237 @@ export default function SearchTabs({
     if (onModeChange) onModeChange(next);
   };
 
+  // Mobile collapsed summary chip — tapping expands the full tabs UI.
+  const collapsed = hasActivePlan && !mobileOpen;
+
   return (
-    <div className="v2-search-tabs" aria-label="Search by ZIP or address">
-      {/* Tab row */}
-      <div className="v2-search-tabs-row" role="tablist">
+    <div
+      className={`v2-search-tabs ${collapsed ? 'v2-search-tabs--collapsed' : ''}`}
+      aria-label="Search by ZIP or address"
+    >
+      {/* Mobile collapsed summary — single tap target that expands tabs */}
+      {hasActivePlan && (
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === 'zip'}
-          className={
-            mode === 'zip'
-              ? 'v2-search-tab v2-search-tab--active'
-              : 'v2-search-tab'
-          }
-          onClick={() => setMode('zip')}
+          className="v2-search-summary-chip"
+          onClick={() => setMobileOpen((o) => !o)}
+          aria-expanded={mobileOpen}
+          aria-label={mobileOpen ? 'Close search' : 'Change area'}
         >
-          By ZIP
+          <span className="v2-search-summary-icon" aria-hidden="true">
+            {mobileOpen ? '\u2715' : '\u270E'}
+          </span>
+          <span className="v2-search-summary-label">
+            {mobileOpen
+              ? 'Close'
+              : (summaryLabel || 'Change area')}
+          </span>
+          {!mobileOpen && onStartOver && (
+            <span
+              role="button"
+              tabIndex={0}
+              className={
+                startOverArmed
+                  ? 'v2-search-summary-startover v2-search-summary-startover--armed'
+                  : 'v2-search-summary-startover'
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onStartOver) onStartOver();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (onStartOver) onStartOver();
+                }
+              }}
+            >
+              {startOverArmed ? 'Confirm' : '\u21BB Start over'}
+            </span>
+          )}
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'radius'}
-          className={
-            mode === 'radius'
-              ? 'v2-search-tab v2-search-tab--active'
-              : 'v2-search-tab'
-          }
-          onClick={() => setMode('radius')}
-        >
-          By address + radius
-        </button>
-        {hasActivePlan && onStartOver && (
+      )}
+
+      <div className="v2-search-tabs-body">
+        {/* Tab row */}
+        <div className="v2-search-tabs-row" role="tablist">
           <button
             type="button"
+            role="tab"
+            aria-selected={mode === 'zip'}
             className={
-              startOverArmed
-                ? 'v2-search-startover v2-search-startover--armed'
-                : 'v2-search-startover'
+              mode === 'zip'
+                ? 'v2-search-tab v2-search-tab--active'
+                : 'v2-search-tab'
             }
-            onClick={onStartOver}
-            title={
-              startOverArmed
-                ? 'Click again to confirm'
-                : 'Clear everything and start fresh'
-            }
+            onClick={() => setMode('zip')}
           >
-            {startOverArmed ? 'Click again to confirm' : '↻ Start over'}
+            By ZIP
           </button>
-        )}
-      </div>
-
-
-      {/* Tab content */}
-      {mode === 'zip' && (
-        <form
-          onSubmit={submitZip}
-          className="v2-search-tab-panel"
-          aria-label="ZIP search"
-        >
-          <div
-            className="v2-search-input-box"
-            data-error={zipShowError ? 'true' : 'false'}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'radius'}
+            className={
+              mode === 'radius'
+                ? 'v2-search-tab v2-search-tab--active'
+                : 'v2-search-tab'
+            }
+            onClick={() => setMode('radius')}
           >
-            <svg
-              aria-hidden="true"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ color: 'var(--mpa-v2-slate)', flexShrink: 0 }}
+            <span className="v2-search-tab-label-full">By address + radius</span>
+            <span className="v2-search-tab-label-short" aria-hidden="true">
+              By address
+            </span>
+          </button>
+          {hasActivePlan && onStartOver && (
+            <button
+              type="button"
+              className={
+                startOverArmed
+                  ? 'v2-search-startover v2-search-startover--armed'
+                  : 'v2-search-startover'
+              }
+              onClick={onStartOver}
+              title={
+                startOverArmed
+                  ? 'Click again to confirm'
+                  : 'Clear everything and start fresh'
+              }
             >
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="\d{5}"
-              maxLength={5}
-              value={zipVal}
-              placeholder="Enter ZIP (e.g. 33801)"
-              onChange={(e) => setZipVal(e.target.value)}
-              aria-label="5-digit ZIP code"
-              aria-invalid={zipShowError}
-              ref={zipInputRef}
-            />
-            <button type="submit" className="v2-search-submit-btn">
-              {geocoding ? 'Searching...' : 'Search'}
+              {startOverArmed ? 'Click again to confirm' : '\u21BB Start over'}
             </button>
-          </div>
-          {zipShowError && (
-            <div className="v2-search-error">
-              Enter a 5-digit ZIP (e.g. 33801).
-            </div>
           )}
-        </form>
-      )}
+        </div>
 
-      {mode === 'radius' && (
-        <form
-          onSubmit={submitRadius}
-          className="v2-search-tab-panel"
-          aria-label="Address and radius search"
-        >
-          <div className="v2-search-input-box">
-            <svg
-              aria-hidden="true"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ color: 'var(--mpa-v2-slate)', flexShrink: 0 }}
+
+        {/* Tab content */}
+        {mode === 'zip' && (
+          <form
+            onSubmit={submitZip}
+            className="v2-search-tab-panel"
+            aria-label="ZIP search"
+          >
+            <div
+              className="v2-search-input-box"
+              data-error={zipShowError ? 'true' : 'false'}
             >
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-            <Autocomplete
-              onLoad={handleAutocompleteLoad}
-              onPlaceChanged={handlePlaceChanged}
-              options={{
-                types: ['geocode'],
-                componentRestrictions: { country: 'us' },
-                fields: [
-                  'address_components',
-                  'geometry',
-                  'formatted_address',
-                ],
-              }}
-            >
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ color: 'var(--mpa-v2-slate)', flexShrink: 0 }}
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
               <input
                 type="text"
-                value={addressVal}
-                placeholder="430 N Washington Ave, Lakeland FL"
-                onChange={(e) => {
-                  setAddressVal(e.target.value);
-                  // P1-2: reset touched on edit so the "pick a suggestion"
-                  // hint clears as soon as the user starts typing again.
-                  if (addressTouched) setAddressTouched(false);
-                }}
-                aria-label="Address"
-                aria-invalid={addressShowHint}
+                inputMode="numeric"
+                pattern="\d{5}"
+                maxLength={5}
+                value={zipVal}
+                placeholder="Enter ZIP (e.g. 33801)"
+                onChange={(e) => setZipVal(e.target.value)}
+                aria-label="5-digit ZIP code"
+                aria-invalid={zipShowError}
+                ref={zipInputRef}
               />
-            </Autocomplete>
-            <select
-              className="v2-search-radius-select"
-              value={radius}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                if (onRadiusChange) onRadiusChange(next);
-              }}
-              aria-label="Radius in miles"
-            >
-              {RADIUS_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r} mi
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="v2-search-submit-btn">
-              Search
-            </button>
-          </div>
-          {addressShowHint && (
-            <div className="v2-search-error">
-              Pick a suggestion from the dropdown to search.
+              <button type="submit" className="v2-search-submit-btn">
+                {geocoding ? 'Searching...' : 'Search'}
+              </button>
             </div>
-          )}
-        </form>
-      )}
+            {zipShowError && (
+              <div className="v2-search-error">
+                Enter a 5-digit ZIP (e.g. 33801).
+              </div>
+            )}
+          </form>
+        )}
+
+        {mode === 'radius' && (
+          <form
+            onSubmit={submitRadius}
+            className="v2-search-tab-panel"
+            aria-label="Address and radius search"
+          >
+            <div className="v2-search-input-box">
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ color: 'var(--mpa-v2-slate)', flexShrink: 0 }}
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+              <Autocomplete
+                onLoad={handleAutocompleteLoad}
+                onPlaceChanged={handlePlaceChanged}
+                options={{
+                  types: ['geocode'],
+                  componentRestrictions: { country: 'us' },
+                  fields: [
+                    'address_components',
+                    'geometry',
+                    'formatted_address',
+                  ],
+                }}
+              >
+                <input
+                  type="text"
+                  value={addressVal}
+                  placeholder="430 N Washington Ave, Lakeland FL"
+                  onChange={(e) => {
+                    setAddressVal(e.target.value);
+                    // P1-2: reset touched on edit so the "pick a suggestion"
+                    // hint clears as soon as the user starts typing again.
+                    if (addressTouched) setAddressTouched(false);
+                  }}
+                  aria-label="Address"
+                  aria-invalid={addressShowHint}
+                />
+              </Autocomplete>
+              <select
+                className="v2-search-radius-select"
+                value={radius}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (onRadiusChange) onRadiusChange(next);
+                }}
+                aria-label="Radius in miles"
+              >
+                {RADIUS_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r} mi
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="v2-search-submit-btn">
+                Search
+              </button>
+            </div>
+            {addressShowHint && (
+              <div className="v2-search-error">
+                Pick a suggestion from the dropdown to search.
+              </div>
+            )}
+          </form>
+        )}
+      </div>
     </div>
   );
 }

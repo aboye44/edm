@@ -279,21 +279,77 @@
 /* ─── Responsive ─── */
 @media (max-width: 640px) {
   .step3-root {
-    padding: 28px 18px 60px;
+    padding: 24px 16px 60px;
   }
   .step3-title {
-    font-size: 28px;
+    font-size: 26px;
+    letter-spacing: -0.6px;
+  }
+  .step3-subtitle {
+    font-size: 14.5px;
+    margin-bottom: 24px;
+  }
+  .step3-section {
+    margin-top: 28px;
   }
   .step3-form-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
+  /* Inputs: 16px prevents iOS auto-zoom on focus */
+  .step3-input,
+  .step3-textarea {
+    font-size: 16px;
+    padding: 13px 14px;
+    min-height: 48px;
+  }
+  .step3-textarea {
+    min-height: 100px;
+  }
+  .step3-label {
+    font-size: 12px;
+  }
+  /* Recap row — labels above values for readability on narrow phones */
   .step3-recap-row {
-    grid-template-columns: 90px 1fr;
+    grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
     row-gap: 4px;
+    padding: 14px 14px;
+    column-gap: 12px;
+  }
+  .step3-recap-label {
+    grid-column: 1 / -1;
+    font-size: 10px;
+  }
+  .step3-recap-value {
+    grid-column: 1;
+    font-size: 14px;
+    line-height: 1.45;
   }
   .step3-recap-change {
     grid-column: 2;
-    justify-self: start;
+    grid-row: 2;
+    justify-self: end;
+    align-self: center;
+    font-size: 13px;
+    padding: 8px 4px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* CTA full-width with real tap target */
+  .step3-cta {
+    padding: 18px;
+    font-size: 13px;
+    min-height: 56px;
+  }
+  .step3-cta-footnote {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .step3-error-retry {
+    min-height: 44px;
+    padding: 8px 4px;
+    display: inline-block;
   }
 }

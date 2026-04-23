@@ -4,23 +4,33 @@ import '../styles/tokens-v2.css';
 import './V2Shell.css';
 
 const STEPS = [
-  { path: '/v2',         label: '1. Plan' },
-  { path: '/v2/design',  label: '2. Design' },
-  { path: '/v2/review',  label: '3. Review' },
-  { path: '/v2/mail',    label: '4. Mail' },
+  { path: '/v2',         label: '1. Plan',    short: 'Plan' },
+  { path: '/v2/design',  label: '2. Design',  short: 'Design' },
+  { path: '/v2/review',  label: '3. Review',  short: 'Review' },
+  { path: '/v2/mail',    label: '4. Mail',    short: 'Mail' },
 ];
 
 export default function V2Shell() {
   const location = useLocation();
   const currentPath = location.pathname.replace(/\/$/, '') || '/v2';
+  const currentStepIdx = Math.max(
+    0,
+    STEPS.findIndex((s) => s.path === currentPath)
+  );
 
   return (
     <div className="v2-root">
       <header className="v2-header">
         <div className="v2-brand">
-          <span className="v2-brand-name">MailPro · EDDM Planner</span>
+          <span className="v2-brand-name v2-brand-name--full">
+            MailPro &middot; EDDM Planner
+          </span>
+          <span className="v2-brand-name v2-brand-name--short" aria-hidden="true">
+            EDDM Planner
+          </span>
         </div>
-        <nav className="v2-stepnav">
+        {/* Desktop: full text step nav. Hidden on mobile. */}
+        <nav className="v2-stepnav v2-stepnav--desktop" aria-label="Progress">
           {STEPS.map((step) => (
             <Link
               key={step.path}
@@ -31,7 +41,32 @@ export default function V2Shell() {
             </Link>
           ))}
         </nav>
-        <div className="v2-help">Need help? <a href="tel:+18636876945">(863) 687-6945</a></div>
+        {/* Mobile: compact progress dots + current step label. */}
+        <div className="v2-stepnav v2-stepnav--mobile" aria-label="Progress">
+          <span className="v2-stepnav-mobile-label">
+            Step {currentStepIdx + 1} of {STEPS.length}
+            <span className="v2-stepnav-mobile-name">
+              {' '}&middot; {STEPS[currentStepIdx]?.short || ''}
+            </span>
+          </span>
+          <span className="v2-stepnav-dots" aria-hidden="true">
+            {STEPS.map((step, i) => (
+              <span
+                key={step.path}
+                className={`v2-stepnav-dot ${
+                  i === currentStepIdx ? 'v2-stepnav-dot--active' : ''
+                } ${i < currentStepIdx ? 'v2-stepnav-dot--done' : ''}`}
+              />
+            ))}
+          </span>
+        </div>
+        <div className="v2-help">
+          <span className="v2-help-label">Need help?</span>
+          <a href="tel:+18636876945" className="v2-help-phone">
+            <span className="v2-help-phone-full">(863) 687-6945</span>
+            <span className="v2-help-phone-short" aria-hidden="true">Call</span>
+          </a>
+        </div>
       </header>
       <main className="v2-main">
         <Outlet />

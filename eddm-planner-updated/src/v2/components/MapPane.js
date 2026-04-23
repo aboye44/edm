@@ -17,17 +17,32 @@ export const V2_MAP_LIBRARIES = ['places', 'drawing'];
 const DEFAULT_CENTER = { lat: 28.0395, lng: -81.9498 }; // Lakeland, FL
 const DEFAULT_ZOOM = 12;
 
-const MAP_OPTIONS = {
-  mapTypeControl: false,
-  streetViewControl: false,
-  fullscreenControl: false,
-  zoomControl: true,
-  zoomControlOptions: undefined,
-  styles: [
-    { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  ],
-};
+// Build map options on demand so we can pick the right gestureHandling
+// based on viewport. On phones, "greedy" lets single-finger pan work — users
+// don't want a two-finger gesture requirement for a campaign builder. On
+// desktop, "auto" is fine (mouse scroll zoom without modifiers).
+function buildMapOptions() {
+  const isPhone =
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(max-width: 767px)').matches;
+  return {
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    zoomControl: true,
+    zoomControlOptions: undefined,
+    // "greedy" on phones: single-finger pan, pinch to zoom — the natural
+    // gesture set. "cooperative" (default) requires two fingers to pan and
+    // blocks the page-scroll gesture trap, but it also blocks legitimate
+    // map interaction and confuses users. On desktop we keep "auto".
+    gestureHandling: isPhone ? 'greedy' : 'auto',
+    styles: [
+      { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    ],
+  };
+}
 
 // ─── Geometry helpers (ported from EDDMMapper.js, not modified there) ───
 
@@ -132,6 +147,12 @@ export default function MapPane({
   const mapRef = useRef(null);
   const circleRef = useRef(null);
   const [hovered, setHovered] = useState(null);
+  // Map options computed once at mount — rebuilt on window resize isn't
+  // necessary because phones rarely cross the 767px threshold mid-session.
+  const mapOptionsRef = useRef(null);
+  if (mapOptionsRef.current === null) {
+    mapOptionsRef.current = buildMapOptions();
+  }
   const tilesLoadedRef = useRef(false);
   // P1-4: track the tile-fail timer at the component level so unmount
   // can clear it. Previously the timer was stashed on map.__v2_tile_watch
@@ -305,7 +326,7 @@ export default function MapPane({
           mapContainerStyle={{ width: '100%', height: '100%' }}
           center={effectiveCenter}
           zoom={effectiveZoom}
-          options={MAP_OPTIONS}
+          options={mapOptionsRef.current}
           onLoad={handleMapLoad}
         >
           {mode === 'draw' && (

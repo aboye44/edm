@@ -15,12 +15,14 @@
   justify-content: space-between;
   border-bottom: 1px solid var(--mpa-v2-line);
   background: var(--mpa-v2-cream);
+  gap: 12px;
 }
 
 .v2-brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .v2-brand-name {
@@ -28,9 +30,58 @@
   font-weight: 600;
 }
 
+.v2-brand-name--short {
+  display: none;
+}
+
 .v2-stepnav {
   display: flex;
   gap: 26px;
+}
+
+.v2-stepnav--mobile {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.v2-stepnav-mobile-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mpa-v2-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-stepnav-mobile-name {
+  color: var(--mpa-v2-slate);
+  font-weight: 500;
+}
+
+.v2-stepnav-dots {
+  display: inline-flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.v2-stepnav-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--mpa-v2-line);
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.v2-stepnav-dot--done {
+  background: var(--mpa-v2-ink-soft);
+}
+
+.v2-stepnav-dot--active {
+  background: var(--mpa-v2-red);
 }
 
 .v2-step {
@@ -50,6 +101,14 @@
 .v2-help {
   font-size: 12px;
   color: var(--mpa-v2-slate);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.v2-help-label {
+  display: inline;
 }
 
 .v2-help a {
@@ -58,6 +117,92 @@
   font-weight: 500;
 }
 
+.v2-help-phone {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 6px;
+}
+
+.v2-help-phone-short {
+  display: none;
+}
+
 .v2-main {
   overflow: auto;
+}
+
+/* ─── Tablet (≤900px): compact header ─── */
+@media (max-width: 900px) {
+  .v2-header {
+    padding: 0 16px;
+    gap: 8px;
+  }
+  .v2-stepnav {
+    gap: 16px;
+  }
+  .v2-step {
+    font-size: 12px;
+  }
+}
+
+/* ─── Phone (≤640px): stacked stepper + phone-number collapse ─── */
+@media (max-width: 640px) {
+  .v2-header {
+    padding: 0 14px;
+    gap: 10px;
+    height: 56px;
+  }
+  .v2-root {
+    grid-template-rows: 56px 1fr;
+  }
+  .v2-brand-name--full {
+    display: none;
+  }
+  .v2-brand-name--short {
+    display: inline;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .v2-stepnav--desktop {
+    display: none;
+  }
+  .v2-stepnav--mobile {
+    display: flex;
+  }
+  .v2-help-label {
+    display: none;
+  }
+  .v2-help-phone-full {
+    display: none;
+  }
+  .v2-help-phone-short {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 1px solid var(--mpa-v2-line);
+    background: var(--mpa-v2-paper);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--mpa-v2-ink);
+  }
+}
+
+/* ─── Very narrow phones (≤380px): brand goes away too ─── */
+@media (max-width: 380px) {
+  .v2-header {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .v2-brand {
+    display: none;
+  }
+  .v2-stepnav-mobile-name {
+    display: none;
+  }
 }

@@ -369,6 +369,26 @@ export default function Step1Plan() {
   const availableCount = routes.length;
   const avgIncomeK = Math.round((totals.avgIncome || 0) / 1000);
 
+  // Compact summary for the mobile-collapsed SearchTabs chip. Shows the
+  // user what they've picked without having to expand the full search UI.
+  // Format: "3 ZIPs · 4,200 HH" (or "1 ZIP · 980 HH" singular).
+  const searchSummaryLabel = useMemo(() => {
+    const parts = [];
+    if ((state.searchMode || 'zip') === 'radius' && state.radiusSearch) {
+      parts.push(`${state.radiusSearch.radius} mi radius`);
+    } else if (state.zips.length > 0) {
+      parts.push(
+        state.zips.length === 1
+          ? `ZIP ${state.zips[0]}`
+          : `${state.zips.length} ZIPs`
+      );
+    }
+    if (totals.hh > 0) {
+      parts.push(`${fmtN(totals.hh)} HH`);
+    }
+    return parts.join(' \u00B7 ');
+  }, [state.searchMode, state.radiusSearch, state.zips, totals.hh]);
+
   // ── Classify errors for render routing ──────────────────────────
   const sidebarError =
     error && ['no-routes', 'timeout', 'network'].includes(error.type)
@@ -424,6 +444,7 @@ export default function Step1Plan() {
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
                   zipInputRef={zipInputRef}
+                  summaryLabel={searchSummaryLabel}
                 />
                 {/* P1-5: multi-ZIP chip row + "Add another ZIP" only makes
                     sense in ZIP mode. In radius mode ZIPs are discovered

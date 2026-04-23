@@ -126,21 +126,37 @@
 
 @media (max-width: 640px) {
   .step4-root {
-    padding: 40px 18px 60px;
+    padding: 36px 16px 60px;
   }
   .step4-title {
-    font-size: 30px;
+    font-size: 28px;
+    letter-spacing: -0.7px;
   }
   .step4-body {
     font-size: 15px;
+    line-height: 1.6;
+  }
+  .step4-check {
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+  }
+  .step4-divider {
+    margin: 28px 0;
   }
   .step4-actions {
     flex-direction: column;
+    gap: 10px;
   }
   .step4-cta-primary,
   .step4-cta-secondary {
     width: 100%;
     text-align: center;
     box-sizing: border-box;
+    min-height: 56px;
+    padding: 18px 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }

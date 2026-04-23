@@ -644,25 +644,136 @@
   }
 }
 
-@media (max-width: 768px) {
+/* ─── Phone (≤640px) — single column, touch-friendly, no iOS zoom ─── */
+@media (max-width: 640px) {
   .step2-root {
     grid-template-columns: 1fr;
   }
   .step2-main {
-    padding: 20px 18px;
+    padding: 18px 16px 24px;
   }
   .step2-title {
-    font-size: 26px;
+    font-size: 24px;
+    letter-spacing: -0.5px;
+  }
+  .step2-subtitle {
+    font-size: 13.5px;
+  }
+  .step2-h2 {
+    font-size: 19px;
+  }
+  .step2-h2-sub {
+    font-size: 13px;
+  }
+  .step2-sizes {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .step2-size-card {
+    padding: 12px;
+    min-height: 130px;
+  }
+  .step2-size-card[data-active='true'] {
+    padding: 11px;
+  }
+  .step2-size-thumb {
+    height: 52px;
+    margin-bottom: 8px;
+  }
+  .step2-size-name {
+    font-size: 15px;
+  }
+  .step2-size-tag {
+    font-size: 10.5px;
+  }
+  .step2-artwork {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .step2-art-card {
+    min-height: 0;
+    padding: 18px;
+  }
+  .step2-art-card[data-active='true'] {
+    padding: 17px;
+  }
+  .step2-art-title {
+    font-size: 16px;
+  }
+  .step2-art-sub {
+    font-size: 13px;
+  }
+  .step2-art-cta,
+  .step2-art-waiting {
+    min-height: 44px;
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+  /* Custom size inputs stack on phone — two side-by-side inputs at 360px
+     makes each input ~150px wide, not enough for "7.5" + placeholder hint */
+  .step2-custom-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .step2-input,
+  .step2-textarea {
+    /* Prevent iOS auto-zoom on focus */
+    font-size: 16px;
+    padding: 12px 14px;
+  }
+  .step2-textarea {
+    min-height: 100px;
+  }
+  /* Sidebar — full width below, keep padding generous */
+  .step2-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--mpa-v2-line);
+    padding: 20px 16px 28px;
+  }
+  .step2-sidebar-title {
+    font-size: 16px;
+  }
+  .step2-cta {
+    padding: 18px;
+    font-size: 13px;
+    min-height: 56px;
+  }
+  .step2-save-link {
+    min-height: 36px;
+    padding: 8px 4px;
+    font-size: 13px;
+  }
+  /* Upload zone: big thumbable area */
+  .step2-upload-zone,
+  .step2-upload-zone--active,
+  .step2-upload-zone--canva {
+    min-height: 80px;
+    padding: 16px 12px;
+  }
+  .step2-upload-replace {
+    min-height: 40px;
+    padding: 10px;
+    font-size: 12px;
+  }
+}
+
+/* Legacy 768px breakpoint kept for tablet portrait (narrow iPad) */
+@media (min-width: 641px) and (max-width: 768px) {
+  .step2-root {
+    grid-template-columns: 1fr;
+  }
+  .step2-main {
+    padding: 22px 22px;
   }
   .step2-sizes {
     grid-template-columns: 1fr 1fr;
   }
   .step2-artwork {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
   .step2-sidebar {
     border-left: none;
     border-top: 1px solid var(--mpa-v2-line);
-    padding: 22px 18px;
+    padding: 22px 22px;
   }
 }

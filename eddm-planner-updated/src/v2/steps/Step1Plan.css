@@ -760,6 +760,66 @@
   gap: 6px;
 }
 
+/* Route chip (moved out of inline styles so we can give the × button
+   a proper touch target without bloating the JSX). */
+.mpa-v2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px 5px 10px;
+  background: var(--mpa-v2-white);
+  border: 1px solid var(--mpa-v2-line);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--mpa-v2-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.mpa-v2-chip-name {
+  font-family: var(--mpa-v2-font-mono);
+  font-weight: 600;
+  color: var(--mpa-v2-ink);
+}
+
+.mpa-v2-chip-hh {
+  font-family: var(--mpa-v2-font-mono);
+  color: var(--mpa-v2-slate);
+}
+
+.mpa-v2-chip-remove {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--mpa-v2-slate);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  font-family: inherit;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mpa-v2-chip-remove:hover {
+  color: var(--mpa-v2-red);
+}
+
+@media (max-width: 640px) {
+  .mpa-v2-chip {
+    font-size: 12px;
+    padding: 6px 4px 6px 10px;
+  }
+  .mpa-v2-chip-remove {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+}
+
 .step1-empty {
   padding: 14px 16px;
   border: 1px dashed var(--mpa-v2-line);
@@ -1059,30 +1119,284 @@
   50% { opacity: 1; transform: scale(1); }
 }
 
-/* ─── Mobile (<768px) ───────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+ * SearchTabs — mobile collapse mechanics
+ *
+ * When hasActivePlan is true, on phone portrait we hide the full tabbed
+ * search UI and replace it with a single summary chip at the top of the
+ * map ("3 ZIPs · 4,200 HH · Change"). Tapping the chip expands the
+ * tabs inline. This keeps the map visible after a search lands — which
+ * is the whole point of Step 1.
+ *
+ * Desktop: both pieces coexist (chip hidden via CSS). Mobile: chip
+ * visible when collapsed, tabs hidden; chip hidden when expanded,
+ * tabs visible.
+ * ───────────────────────────────────────────────────────────── */
+.v2-search-summary-chip {
+  display: none;
+}
+
+.v2-search-summary-icon {
+  font-size: 12px;
+  color: var(--mpa-v2-slate);
+  flex-shrink: 0;
+}
+
+.v2-search-summary-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mpa-v2-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.v2-search-summary-startover {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--mpa-v2-slate);
+  font-size: 11.5px;
+  font-weight: 500;
+  border-left: 1px solid var(--mpa-v2-line);
+  white-space: nowrap;
+}
+
+.v2-search-summary-startover--armed {
+  color: var(--mpa-v2-red);
+  background: var(--mpa-v2-red-wash);
+  font-weight: 600;
+}
+
+.v2-search-tab-label-short {
+  display: none;
+}
+
+/* ─── Tablet / small desktop (≤900px): narrower search card ─── */
+@media (max-width: 900px) {
+  .v2-search-tabs {
+    min-width: 380px;
+    max-width: calc(100vw - 40px);
+  }
+  .step1-zip-overlay {
+    max-width: calc(100vw - 40px);
+  }
+}
+
+/* ─── Phone portrait (<768px) ─────────────────────────────────
+ * Stack map above sidebar, give map room to breathe (55vh min so
+ * polygons are legible once they render), and engage the SearchTabs
+ * mobile collapse so the search card doesn't cover the map post-search.
+ * ───────────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .step1-root {
     grid-template-columns: 1fr;
-    grid-template-rows: 320px 1fr;
+    grid-template-rows: minmax(55vh, 420px) 1fr;
     height: auto;
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 56px);
   }
   .step1-map-pane {
-    padding: 10px;
+    padding: 8px;
   }
   .step1-sidebar {
     border-left: none;
     border-top: 1px solid var(--mpa-v2-line);
-    padding: 22px;
+    padding: 20px 18px 24px;
+  }
+  .step1-zip-overlay {
+    top: 8px;
+    gap: 6px;
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+    left: 8px;
+    transform: none;
+    align-items: stretch;
   }
   .v2-zip-search-box {
-    min-width: 260px;
+    min-width: 0;
   }
   .v2-search-tabs {
-    min-width: 280px;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
   }
+  .v2-search-tabs--collapsed .v2-search-tabs-body {
+    display: none;
+  }
+  .v2-search-summary-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 0 0 14px;
+    background: var(--mpa-v2-white);
+    border: 1px solid var(--mpa-v2-line);
+    box-shadow: var(--mpa-v2-shadow-map-overlay-lg);
+    font-family: var(--mpa-v2-font-sans);
+    cursor: pointer;
+    text-align: left;
+  }
+  /* Hide start-over inside the tab row on mobile — it's on the summary chip
+     instead (or on the sidebar "Start over" if we add one later). */
+  .v2-search-tabs-body .v2-search-startover {
+    display: none;
+  }
+  /* Mobile tab label: drop the "+ radius" suffix so tab fits on narrow phones */
+  .v2-search-tab-label-full {
+    display: none;
+  }
+  .v2-search-tab-label-short {
+    display: inline;
+  }
+  .v2-search-tab {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .v2-search-tab-panel {
+    padding: 12px;
+  }
+  .v2-search-input-box input,
+  .v2-search-input-box .pac-target-input {
+    /* 16px font-size prevents iOS from auto-zooming on focus */
+    font-size: 16px;
+    padding: 12px 10px 12px 0;
+  }
+  .v2-search-radius-select {
+    font-size: 14px;
+    min-height: 44px;
+    padding: 0 26px 0 10px;
+  }
+  .v2-search-submit-btn {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 11px;
+  }
+  /* ZIP chips row — keep compact so it doesn't eat map area */
+  .step1-zip-chips {
+    padding: 6px 10px;
+    max-width: 100%;
+    gap: 6px;
+  }
+  .step1-zip-chip {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-height: 32px;
+  }
+  .step1-zip-chip button {
+    font-size: 18px;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step1-add-zip {
+    font-size: 12px;
+    padding: 8px 10px;
+    min-height: 36px;
+  }
+  /* State pill — bottom-left on phone (keeps top area for the search).
+     Smaller so it doesn't fight map polygons for attention. */
+  .step1-state-overlay {
+    top: auto;
+    bottom: 12px;
+    right: auto;
+    left: 12px;
+  }
+  .v2-state-pill {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  /* Sidebar content tweaks */
   .step1-hero-number {
-    font-size: 64px;
-    letter-spacing: -2.5px;
+    font-size: 56px;
+    letter-spacing: -2px;
+  }
+  .step1-subhero {
+    font-size: 14px;
+  }
+  .step1-mailing-area-city {
+    font-size: 17px;
+  }
+  .step1-stat-value {
+    font-size: 26px;
+  }
+  /* Touch target friendly segmented control */
+  .step1-delivery-toggle button {
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 13px;
+  }
+  /* Clear-all links — give them real touch targets */
+  .step1-clear-all,
+  .step1-clear-zips,
+  .step1-save-link {
+    min-height: 36px;
+    padding: 8px 4px;
+    font-size: 13px;
+  }
+  /* CTA: bigger tap target, higher shadow for visual weight */
+  .step1-cta {
+    padding: 18px 16px;
+    font-size: 14px;
+    min-height: 56px;
+  }
+  /* Loading overlay — card wider on narrow phones */
+  .v2-loading-overlay-card {
+    min-width: 240px;
+    max-width: calc(100vw - 40px);
+    padding: 24px 28px;
+  }
+  /* SavePlanPopover — on mobile make it a near-full-width panel instead
+     of a 300px popover that pushes off the edge of the sidebar. */
+  .v2-save-popover {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+    box-sizing: border-box;
+    padding: 20px 18px 24px;
+    z-index: 100;
+    box-shadow: 0 -8px 28px rgba(31, 26, 18, 0.2);
+  }
+  .v2-save-input {
+    font-size: 16px; /* prevent iOS zoom */
+    padding: 12px 14px;
+  }
+  .v2-save-submit {
+    min-height: 48px;
+    padding: 14px 12px;
+  }
+}
+
+/* ─── Very narrow phones (≤380px) — tighten further ─── */
+@media (max-width: 380px) {
+  .step1-hero-number {
+    font-size: 48px;
+    letter-spacing: -1.5px;
+  }
+  .step1-stat-value {
+    font-size: 22px;
+  }
+  .v2-state-pill {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  .v2-search-summary-label {
+    font-size: 12px;
+  }
+  .v2-search-summary-startover {
+    font-size: 11px;
+    padding: 6px 8px;
   }
 }
