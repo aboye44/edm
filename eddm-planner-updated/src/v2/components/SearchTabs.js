@@ -37,9 +37,13 @@ export default function SearchTabs({
   onRadiusChange,
   // Phase 5.3: Start over lives INSIDE the search card so it's always
   // in the user's field of view while they interact with search.
-  // Shown only when there's something to clear.
+  // Shown only when there's something to clear. Two-click arm/confirm
+  // pattern — `startOverArmed` flips the button label to "Click again
+  // to confirm" (red) after the first click. Parent manages the
+  // 3-second auto-disarm timer.
   onStartOver,
   hasActivePlan = false,
+  startOverArmed = false,
   geocoding = false,
   showInvalid = false,
 }) {
@@ -168,11 +172,19 @@ export default function SearchTabs({
         {hasActivePlan && onStartOver && (
           <button
             type="button"
-            className="v2-search-startover"
+            className={
+              startOverArmed
+                ? 'v2-search-startover v2-search-startover--armed'
+                : 'v2-search-startover'
+            }
             onClick={onStartOver}
-            title="Clear everything and start fresh"
+            title={
+              startOverArmed
+                ? 'Click again to confirm'
+                : 'Clear everything and start fresh'
+            }
           >
-            ↻ Start over
+            {startOverArmed ? 'Click again to confirm' : '↻ Start over'}
           </button>
         )}
       </div>

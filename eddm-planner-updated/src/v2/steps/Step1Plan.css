@@ -136,6 +136,26 @@
   background: var(--mpa-v2-paper-soft);
 }
 
+/* Armed state: signals the next click will actually destroy state.
+   Red text on red-wash bg + subtle pulse so it's clearly different
+   from the idle state. */
+.v2-search-startover--armed {
+  color: var(--mpa-v2-red);
+  background: var(--mpa-v2-red-wash);
+  font-weight: 600;
+  animation: v2StartOverPulse 1.2s ease-in-out infinite;
+}
+
+.v2-search-startover--armed:hover {
+  color: var(--mpa-v2-red);
+  background: var(--mpa-v2-red-wash);
+}
+
+@keyframes v2StartOverPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
 .v2-search-tab {
   flex: 1;
   background: transparent;

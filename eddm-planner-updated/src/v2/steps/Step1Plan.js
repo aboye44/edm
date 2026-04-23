@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MPA_PRICING_VISIBLE } from '../../config/flags';
 import { usePlanner } from '../PlannerContext';
@@ -39,6 +39,9 @@ export default function Step1Plan() {
 
   // UI-only state (not persisted).
   const [savePopover, setSavePopover] = useState(false);
+  // Start over two-click arm/confirm pattern (replaces window.confirm).
+  const [armStartOver, setArmStartOver] = useState(false);
+  const startOverTimerRef = useRef(null);
   // MapPane uses `mode` to decide whether to render the Circle / DrawingManager.
   // In Phase 5.1 the bottom-left ModeSwitcher is gone — `mode` flips to 'radius'
   // programmatically when the "By address + radius" tab submits.
@@ -191,16 +194,31 @@ export default function Step1Plan() {
   //   - useRoutes internal cache (fetchedZipsRef + route list)
   //   - Local map state (center/zoom, circle, radius dropdown, mode)
   //   - Save-popover UI state
+  //
+  // Phase 5.3 fix — two-click arm/confirm pattern (not window.confirm).
+  // Synchronous browser dialogs block the main thread and cause Chrome
+  // to flag the click as a 2.8s INP (poor Core Web Vitals). Pattern:
+  //   1st click  → armStartOver = true, button label becomes
+  //                "Click again to confirm" (red). Auto-disarms in 3s.
+  //   2nd click  → actually reset.
   const handleStartOver = useCallback(() => {
     const hasState =
       state.zips.length > 0 ||
       state.selected.length > 0 ||
       state.radiusSearch != null;
-    if (hasState) {
-      const ok = window.confirm(
-        'Clear your mailing area and start over? This removes all selected routes.'
-      );
-      if (!ok) return;
+    if (hasState && !armStartOver) {
+      setArmStartOver(true);
+      if (startOverTimerRef.current) {
+        clearTimeout(startOverTimerRef.current);
+      }
+      startOverTimerRef.current = setTimeout(() => {
+        setArmStartOver(false);
+      }, 3000);
+      return;
+    }
+    if (startOverTimerRef.current) {
+      clearTimeout(startOverTimerRef.current);
+      startOverTimerRef.current = null;
     }
     reset();
     clearRoutes();
@@ -210,7 +228,8 @@ export default function Step1Plan() {
     setRadius(3);
     setMode('click');
     setSavePopover(false);
-  }, [state.zips.length, state.selected.length, state.radiusSearch, reset, clearRoutes]);
+    setArmStartOver(false);
+  }, [state.zips.length, state.selected.length, state.radiusSearch, armStartOver, reset, clearRoutes]);
 
   const handleRadiusChange = useCallback(
     async (nextRadius) => {
@@ -374,6 +393,7 @@ export default function Step1Plan() {
                     state.selected.length > 0 ||
                     state.radiusSearch != null
                   }
+                  startOverArmed={armStartOver}
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
                 />
