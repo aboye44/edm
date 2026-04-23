@@ -26,7 +26,7 @@ const POSTAGE_PER_PIECE = 0.359;
 
 export default function Step1Plan() {
   const navigate = useNavigate();
-  const { state, update } = usePlanner();
+  const { state, update, reset } = usePlanner();
   const {
     routes,
     loading,
@@ -184,6 +184,34 @@ export default function Step1Plan() {
   // (which depends on `radius`) fires instantly on change — no need
   // to re-submit SEARCH. Also updates the persisted radiusSearch in
   // context so Review reflects the latest radius.
+  // Phase 5.3 — Start over. Nukes everything so the user can begin
+  // with a blank slate. Confirms first so a misclick doesn't destroy
+  // a long session. Clears:
+  //   - PlannerContext (zips, selected, size, artwork, contact, radius)
+  //   - useRoutes internal cache (fetchedZipsRef + route list)
+  //   - Local map state (center/zoom, circle, radius dropdown, mode)
+  //   - Save-popover UI state
+  const handleStartOver = useCallback(() => {
+    const hasState =
+      state.zips.length > 0 ||
+      state.selected.length > 0 ||
+      state.radiusSearch != null;
+    if (hasState) {
+      const ok = window.confirm(
+        'Clear your mailing area and start over? This removes all selected routes.'
+      );
+      if (!ok) return;
+    }
+    reset();
+    clearRoutes();
+    setMapCenter(null);
+    setMapZoom(12);
+    setCircleCenter(null);
+    setRadius(3);
+    setMode('click');
+    setSavePopover(false);
+  }, [state.zips.length, state.selected.length, state.radiusSearch, reset, clearRoutes]);
+
   const handleRadiusChange = useCallback(
     async (nextRadius) => {
       setRadius(nextRadius);
@@ -410,6 +438,14 @@ export default function Step1Plan() {
             aria-expanded={savePopover}
           >
             {savePopover ? '✕ Close' : '🔗 Save this plan'}
+          </button>
+          <button
+            type="button"
+            className="step1-startover-link"
+            onClick={handleStartOver}
+            title="Clear everything and start fresh"
+          >
+            ↻ Start over
           </button>
           {savePopover && (
             <SavePlanPopover

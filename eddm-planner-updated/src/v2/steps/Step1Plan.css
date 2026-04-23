@@ -492,7 +492,25 @@
   position: relative;
   display: flex;
   justify-content: flex-end;
+  gap: 14px;
   margin-bottom: 10px;
+}
+
+.step1-startover-link {
+  background: transparent;
+  border: none;
+  color: var(--mpa-v2-slate);
+  font-family: var(--mpa-v2-font-sans);
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.12s ease-out;
+}
+
+.step1-startover-link:hover {
+  color: var(--mpa-v2-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .step1-save-link {
