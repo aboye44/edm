@@ -35,6 +35,11 @@ export default function SearchTabs({
   // changes only applied on the next SEARCH submit, which felt laggy.
   radius = 3,
   onRadiusChange,
+  // Phase 5.3: Start over lives INSIDE the search card so it's always
+  // in the user's field of view while they interact with search.
+  // Shown only when there's something to clear.
+  onStartOver,
+  hasActivePlan = false,
   geocoding = false,
   showInvalid = false,
 }) {
@@ -160,7 +165,18 @@ export default function SearchTabs({
         >
           By address + radius
         </button>
+        {hasActivePlan && onStartOver && (
+          <button
+            type="button"
+            className="v2-search-startover"
+            onClick={onStartOver}
+            title="Clear everything and start fresh"
+          >
+            ↻ Start over
+          </button>
+        )}
       </div>
+
 
       {/* Tab content */}
       {mode === 'zip' && (

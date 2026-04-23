@@ -109,7 +109,31 @@
 
 .v2-search-tabs-row {
   display: flex;
+  align-items: stretch;
   border-bottom: 1px solid var(--mpa-v2-line);
+}
+
+/* Start over lives at the far right of the tab row so it's always in
+   the user's field of view while interacting with search. Slate
+   tertiary styling — red is reserved for the primary CTA. */
+.v2-search-startover {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--mpa-v2-line);
+  padding: 0 14px;
+  font-family: var(--mpa-v2-font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mpa-v2-slate);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s ease-out, background-color 0.12s ease-out;
+}
+
+.v2-search-startover:hover {
+  color: var(--mpa-v2-ink);
+  background: var(--mpa-v2-paper-soft);
 }
 
 .v2-search-tab {
@@ -492,25 +516,7 @@
   position: relative;
   display: flex;
   justify-content: flex-end;
-  gap: 14px;
   margin-bottom: 10px;
-}
-
-.step1-startover-link {
-  background: transparent;
-  border: none;
-  color: var(--mpa-v2-slate);
-  font-family: var(--mpa-v2-font-sans);
-  font-size: 12px;
-  padding: 0;
-  cursor: pointer;
-  transition: color 0.12s ease-out;
-}
-
-.step1-startover-link:hover {
-  color: var(--mpa-v2-ink);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 .step1-save-link {

@@ -368,6 +368,12 @@ export default function Step1Plan() {
                   onRadiusSearch={handleRadiusSearch}
                   radius={radius}
                   onRadiusChange={handleRadiusChange}
+                  onStartOver={handleStartOver}
+                  hasActivePlan={
+                    state.zips.length > 0 ||
+                    state.selected.length > 0 ||
+                    state.radiusSearch != null
+                  }
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
                 />
@@ -438,14 +444,6 @@ export default function Step1Plan() {
             aria-expanded={savePopover}
           >
             {savePopover ? '✕ Close' : '🔗 Save this plan'}
-          </button>
-          <button
-            type="button"
-            className="step1-startover-link"
-            onClick={handleStartOver}
-            title="Clear everything and start fresh"
-          >
-            ↻ Start over
           </button>
           {savePopover && (
             <SavePlanPopover
