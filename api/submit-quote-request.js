@@ -1,82 +1,66 @@
-/**
- * Netlify Function — submit-quote-request
- *
- * Receives EDDM v2 Step 3 quote submissions and emails them to
- * orders@mailpro.org via SendGrid. Native fetch only (Node 18+) to match
- * the existing eddm-routes.js pattern — no npm dep on @sendgrid/mail.
- *
- * ─── Required environment variables ───
- *   SENDGRID_API_KEY    Full-access or restricted-access key with "Mail
- *                       Send" permission. Without this the function
- *                       returns 500 with a clear message — submissions are
- *                       NOT silently dropped.
- *
- * ─── Optional environment variables ───
- *   SENDGRID_FROM_EMAIL  Verified sender on the SendGrid account.
- *                        Defaults to 'orders@mailpro.org'. MUST be a
- *                        sender/domain that's been authenticated in
- *                        SendGrid or the send will 403.
- *   SENDGRID_TO_EMAIL    Internal inbox that receives the quote request.
- *                        Defaults to 'orders@mailpro.org'.
- *
- * Set these on Netlify (Site settings → Environment variables) AND on
- * Vercel if the same repo deploys there (Project settings → Environment
- * Variables). The customer's address is used as the reply_to so staff
- * can hit "Reply" in Outlook and land straight in the customer's inbox.
- *
- * ─── What this function does NOT do ───
- *   - It does not send the customer a confirmation email. That's a
- *     follow-up pass; for now this is one email to the internal orders
- *     inbox only.
- *   - It does not validate the attachment byte count — the client-side
- *     enforces the 4 MB cap (see src/v2/steps/Step3Review.js). If a
- *     larger payload ever reaches this function the SendGrid call will
- *     fail with a 413-ish error and we'll surface it.
- */
-
-// Node 18+ provides global fetch. Netlify's esbuild bundler handles this
-// (see netlify.toml → functions.node_bundler = "esbuild").
+// Vercel Serverless Function — submit-quote-request
+//
+// Receives EDDM v2 Step 3 quote submissions and emails them to
+// orders@mailpro.org via SendGrid. Native fetch only (Node 18+) — no npm
+// dep on @sendgrid/mail, matches the eddm-routes.js pattern next door.
+//
+// ─── Required environment variables ───
+//   SENDGRID_API_KEY     Full-access or restricted-access key with "Mail
+//                        Send" permission. Without this the function
+//                        returns 500 with a clear message — submissions
+//                        are NOT silently dropped.
+//
+// ─── Optional environment variables ───
+//   SENDGRID_FROM_EMAIL  Verified sender on the SendGrid account.
+//                        Defaults to 'orders@mailpro.org'. MUST be a
+//                        verified sender or authenticated domain in
+//                        SendGrid or the send will 403.
+//   SENDGRID_TO_EMAIL    Internal inbox that receives the quote request.
+//                        Defaults to 'orders@mailpro.org'.
+//
+// The customer's address is used as the reply_to so staff can hit "Reply"
+// in Outlook and land straight in the customer's inbox.
+//
+// ─── What this function does NOT do ───
+//   - It does not send the customer a confirmation email. That's a
+//     follow-up pass; for now this is one email to the internal orders
+//     inbox only.
+//   - It does not validate the attachment byte count — the client-side
+//     enforces the 4 MB cap (see src/v2/steps/Step3Review.js). A larger
+//     payload will be rejected by Vercel (4.5 MB body limit) before this
+//     handler runs.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json',
-};
 
 const DEFAULT_FROM = 'orders@mailpro.org';
 const DEFAULT_TO = 'orders@mailpro.org';
 
-function ok(body) {
-  return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify(body) };
-}
-function bad(statusCode, error, extra) {
-  return {
-    statusCode,
-    headers: CORS_HEADERS,
-    body: JSON.stringify({ success: false, error, ...(extra || {}) }),
-  };
-}
+export default async function handler(req, res) {
+  // CORS for any embedded-frame or cross-origin POST.
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
-exports.handler = async (event) => {
-  // CORS preflight — browsers on a different origin (rare, but possible
-  // when the planner is embedded) will hit this first.
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: CORS_HEADERS, body: '' };
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
   }
-
-  if (event.httpMethod !== 'POST') {
-    return bad(405, 'Method not allowed. POST only.');
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed. POST only.' });
   }
 
   // ─── Parse + validate payload ───
-  let payload;
-  try {
-    payload = JSON.parse(event.body || '{}');
-  } catch (e) {
-    return bad(400, 'Invalid JSON body');
+  // Vercel auto-parses JSON when Content-Type is application/json, but fall
+  // back to raw-body parse if it arrived as a string.
+  let payload = req.body;
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch (e) {
+      return res.status(400).json({ success: false, error: 'Invalid JSON body' });
+    }
+  }
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ success: false, error: 'Missing or invalid payload' });
   }
 
   const contact = payload.contact || {};
@@ -85,28 +69,30 @@ exports.handler = async (event) => {
   if (!contact.email || typeof contact.email !== 'string') missing.push('contact.email');
   if (!contact.phone || typeof contact.phone !== 'string') missing.push('contact.phone');
   if (missing.length) {
-    return bad(400, `Missing required fields: ${missing.join(', ')}`);
+    return res.status(400).json({
+      success: false,
+      error: `Missing required fields: ${missing.join(', ')}`,
+    });
   }
 
   if (!EMAIL_RE.test(contact.email.trim())) {
-    return bad(400, 'Email address is not valid');
+    return res.status(400).json({ success: false, error: 'Email address is not valid' });
   }
 
-  // ─── Read env vars ───
+  // ─── Env vars ───
   const apiKey = process.env.SENDGRID_API_KEY;
   const fromEmail = (process.env.SENDGRID_FROM_EMAIL || DEFAULT_FROM).trim();
   const toEmail = (process.env.SENDGRID_TO_EMAIL || DEFAULT_TO).trim();
 
   if (!apiKey) {
     console.warn(
-      '[submit-quote-request] Missing SENDGRID_API_KEY — cannot send ' +
-      'the quote email. Submission will fail closed rather than silently ' +
-      'drop the request.'
+      '[submit-quote-request] Missing SENDGRID_API_KEY — cannot send the ' +
+      'quote email. Failing closed rather than silently dropping.'
     );
-    return bad(
-      500,
-      'Quote submission endpoint is not configured. Set SENDGRID_API_KEY in the hosting environment (Netlify / Vercel).'
-    );
+    return res.status(500).json({
+      success: false,
+      error: 'Quote submission endpoint is not configured. Set SENDGRID_API_KEY on Vercel.',
+    });
   }
 
   // ─── Build email bodies ───
@@ -126,7 +112,7 @@ exports.handler = async (event) => {
   const subjectBase = `New EDDM quote request — ${customerName}`;
   const subject = areaSummary ? `${subjectBase} (${areaSummary})` : subjectBase;
 
-  const textBody = buildTextBody({
+  const ctx = {
     submittedAt: payload.submittedAt || new Date().toISOString(),
     customerName,
     customerEmail,
@@ -140,25 +126,12 @@ exports.handler = async (event) => {
     artwork,
     targetMailDate: payload.targetMailDate || '',
     notes: (payload.notes || '').trim(),
-  });
+  };
 
-  const htmlBody = buildHtmlBody({
-    submittedAt: payload.submittedAt || new Date().toISOString(),
-    customerName,
-    customerEmail,
-    customerPhone,
-    customerCompany,
-    areaSummary,
-    pieceSummary,
-    campaign,
-    piece,
-    design,
-    artwork,
-    targetMailDate: payload.targetMailDate || '',
-    notes: (payload.notes || '').trim(),
-  });
+  const textBody = buildTextBody(ctx);
+  const htmlBody = buildHtmlBody(ctx);
 
-  // ─── Build SendGrid payload ───
+  // ─── SendGrid payload ───
   const sgPayload = {
     personalizations: [
       {
@@ -167,8 +140,6 @@ exports.handler = async (event) => {
       },
     ],
     from: { email: fromEmail, name: 'MailPro Quote Form' },
-    // Top-level reply_to (not inside personalizations) — broader compat
-    // and it's what SendGrid docs suggest for a single reply-to.
     reply_to: { email: customerEmail, name: customerName },
     content: [
       { type: 'text/plain', value: textBody },
@@ -176,7 +147,6 @@ exports.handler = async (event) => {
     ],
   };
 
-  // Attach artwork if the client sent base64 bytes.
   if (artwork && typeof artwork.base64 === 'string' && artwork.base64.length > 0) {
     sgPayload.attachments = [
       {
@@ -200,29 +170,29 @@ exports.handler = async (event) => {
     });
 
     if (resp.status === 202) {
-      // 202 Accepted is the SendGrid success signal. No body on success.
-      return ok({ success: true });
+      return res.status(200).json({ success: true });
     }
 
-    // Non-202 — surface the SendGrid error so we can diagnose. Don't
-    // echo the full response back to the client (it can include key
-    // hints / internal detail); log server-side + return a short message.
+    // Non-202 — log server-side, surface short message to client. Don't
+    // echo the raw SendGrid body (can include key hints / internal detail).
     const text = await resp.text();
     console.error(
       `[submit-quote-request] SendGrid ${resp.status}:`,
       text.slice(0, 800)
     );
-    return bad(
-      502,
-      `Email delivery rejected by SendGrid (${resp.status}). Check the Netlify function logs for detail.`
-    );
+    return res.status(502).json({
+      success: false,
+      error: `Email delivery rejected by SendGrid (${resp.status}). Check Vercel function logs for detail.`,
+    });
   } catch (err) {
     console.error('[submit-quote-request] Fetch failed:', err && err.message);
-    return bad(502, 'Failed to reach SendGrid', {
+    return res.status(502).json({
+      success: false,
+      error: 'Failed to reach SendGrid',
       message: err && err.message,
     });
   }
-};
+}
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -252,7 +222,6 @@ function buildPieceSummary(piece) {
     const custom = piece.customSize || '';
     return custom ? `Custom — ${custom}` : 'Custom size';
   }
-  // '6.25x11' → '6.25 × 11 postcard'; '8.5x11' is the jumbo/letter case.
   const sizeLabel = String(piece.size).replace('x', ' × ');
   const noun = piece.size === '8.5x11' ? 'letter' : 'postcard';
   return `${sizeLabel} ${noun}`;
@@ -353,8 +322,6 @@ function buildTextBody(d) {
 }
 
 function buildHtmlBody(d) {
-  // Inline styles only — plenty of email clients strip <style> blocks.
-  // Keep the markup clean and legible rather than dense.
   const row = (label, value) => `
     <tr>
       <td style="padding:6px 12px 6px 0;font-size:13px;color:#64748B;vertical-align:top;white-space:nowrap;">${escapeHtml(label)}</td>

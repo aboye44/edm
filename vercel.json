@@ -7,6 +7,10 @@
     {
       "source": "/.netlify/functions/eddm-routes",
       "destination": "/api/eddm-routes"
+    },
+    {
+      "source": "/.netlify/functions/submit-quote-request",
+      "destination": "/api/submit-quote-request"
     }
   ],
   "redirects": [
