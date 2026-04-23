@@ -1,0 +1,146 @@
+/* ─────────────────────────────────────────────────────────────
+ * Step 4 — Thank you
+ *
+ * V4 Refined v2. Cream bg, Geist, zero radius. Post-submission
+ * confirmation screen — "your quote is on the way."
+ *
+ * Single column, max-width 640px, centered. Minimal. The whole
+ * page has one job: reassure + offer two exits (start over, home).
+ * ───────────────────────────────────────────────────────────── */
+
+.step4-root {
+  min-height: calc(100vh - 60px);
+  background: var(--mpa-v2-cream);
+  color: var(--mpa-v2-ink);
+  font-family: var(--mpa-v2-font-sans);
+  padding: 60px 28px 80px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.step4-shell {
+  max-width: 640px;
+  width: 100%;
+}
+
+.step4-eyebrow {
+  margin-bottom: 14px;
+}
+
+.step4-check {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  background: var(--mpa-v2-red);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.step4-title {
+  font-size: 40px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin: 0 0 16px;
+  color: var(--mpa-v2-ink);
+}
+
+.step4-body {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--mpa-v2-ink-soft);
+  margin: 0 0 12px;
+}
+
+.step4-body strong {
+  color: var(--mpa-v2-ink);
+  font-weight: 600;
+}
+
+.step4-body a {
+  color: var(--mpa-v2-red);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid var(--mpa-v2-red-soft);
+}
+
+.step4-body a:hover {
+  border-bottom-color: var(--mpa-v2-red);
+}
+
+.step4-divider {
+  height: 1px;
+  background: var(--mpa-v2-line);
+  margin: 36px 0;
+  border: none;
+}
+
+.step4-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.step4-cta-primary {
+  background: var(--mpa-v2-red);
+  color: #fff;
+  border: none;
+  padding: 16px 28px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: var(--mpa-v2-font-sans);
+  box-shadow: var(--mpa-v2-shadow-cta-red-desktop);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.step4-cta-primary:hover {
+  background: #a92f34;
+}
+
+.step4-cta-secondary {
+  background: transparent;
+  color: var(--mpa-v2-ink);
+  border: 1px solid var(--mpa-v2-line);
+  padding: 16px 28px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: var(--mpa-v2-font-sans);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.step4-cta-secondary:hover {
+  border-color: var(--mpa-v2-ink);
+}
+
+@media (max-width: 640px) {
+  .step4-root {
+    padding: 40px 18px 60px;
+  }
+  .step4-title {
+    font-size: 30px;
+  }
+  .step4-body {
+    font-size: 15px;
+  }
+  .step4-actions {
+    flex-direction: column;
+  }
+  .step4-cta-primary,
+  .step4-cta-secondary {
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+  }
+}
