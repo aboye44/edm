@@ -4,6 +4,7 @@ import { MPA_PRICING_VISIBLE, MPA_CANVA_TEMPLATES } from '../../config/flags';
 import { usePlanner } from '../PlannerContext';
 import Eyebrow from '../primitives/Eyebrow';
 import fmtN from '../primitives/fmtN';
+import SavePlanPopover from '../components/SavePlanPopover';
 import './Step2Design.css';
 
 // USPS EDDM retail flat rate 2026 — only referenced when MPA_PRICING_VISIBLE is true.
@@ -32,7 +33,10 @@ export default function Step2Design() {
   const { state, update } = usePlanner();
   const uploadCardRef = useRef(null);
   const fileInputRef = useRef(null);
+  const canvaFileInputRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isCanvaDragOver, setIsCanvaDragOver] = useState(false);
+  const [savePopover, setSavePopover] = useState(false);
 
   const { size, customSize, artworkPath, uploadedFile, totalHH } = state;
   const sel = size ? SIZES.find((s) => s.id === size) : null;
@@ -42,6 +46,7 @@ export default function Step2Design() {
   // Continue gate:
   //  - custom: require w + h
   //  - standard: require artwork pick + (if upload) a file
+  //  - quote-only and canva pass without a file; upload still requires one
   const canContinue = Boolean(
     size && (
       (isCustom && customReady) ||
@@ -60,38 +65,49 @@ export default function Step2Design() {
 
   const setArtwork = (path) => update({ artworkPath: path });
 
-  const handleFile = (file) => {
+  // Upload-card handler: stamps artworkPath to 'upload'
+  const handleUploadFile = (file) => {
     if (!file) return;
     if ((!/\.pdf$/i.test(file.name)) && (file.type !== 'application/pdf')) {
       // Best-effort: accept anyway if extension is missing, but prefer PDFs.
       // We intentionally do not reject loudly — the upstream PDF check happens
       // after quote submission, not in the browser.
     }
-    const sizeStr = (() => {
-      const kb = file.size / 1024;
-      if (kb < 1024) return `${Math.round(kb)} KB`;
-      return `${(kb / 1024).toFixed(1)} MB`;
-    })();
+    const sizeStr = formatSize(file.size);
     update({ uploadedFile: { name: file.name, size: sizeStr } });
     setArtwork('upload');
   };
 
-  const handleDrop = (e) => {
+  // Canva-card inline upload: preserves artworkPath === 'canva'
+  const handleCanvaFile = (file) => {
+    if (!file) return;
+    const sizeStr = formatSize(file.size);
+    update({ uploadedFile: { name: file.name, size: sizeStr } });
+    setArtwork('canva');
+  };
+
+  const handleUploadDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
     const file = e.dataTransfer?.files?.[0];
-    if (file) handleFile(file);
+    if (file) handleUploadFile(file);
   };
 
-  const openFileDialog = () => {
+  const handleCanvaDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCanvaDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleCanvaFile(file);
+  };
+
+  const openUploadDialog = () => {
     fileInputRef.current && fileInputRef.current.click();
   };
 
-  const scrollToUpload = () => {
-    if (uploadCardRef.current && uploadCardRef.current.scrollIntoView) {
-      uploadCardRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
+  const openCanvaDialog = () => {
+    canvaFileInputRef.current && canvaFileInputRef.current.click();
   };
 
   const handleContinue = () => {
@@ -102,6 +118,24 @@ export default function Step2Design() {
   return (
     <div className="step2-root">
       <main className="step2-main">
+        {/* ── HEADER: Save plan link ──────────────────── */}
+        <div className="step2-header">
+          <button
+            type="button"
+            className="step2-save-link"
+            onClick={() => setSavePopover((s) => !s)}
+            aria-expanded={savePopover}
+          >
+            {savePopover ? '✕ Close' : '🔗 Save this plan'}
+          </button>
+          {savePopover && (
+            <SavePlanPopover
+              onClose={() => setSavePopover(false)}
+              plannerState={state}
+            />
+          )}
+        </div>
+
         {/* ── SIZE PICKER ─────────────────────────────── */}
         <section className="step2-section">
           <Eyebrow color="var(--mpa-v2-red)">Step 2 of 4</Eyebrow>
@@ -141,27 +175,40 @@ export default function Step2Design() {
               <CanvaArtworkCard
                 active={artworkPath === 'canva'}
                 selectedSize={size}
-                dimmed={artworkPath === 'design-for-me'}
+                dimmed={artworkPath === 'design-for-me' || artworkPath === 'quote-only'}
+                uploadedFile={artworkPath === 'canva' ? uploadedFile : null}
+                isDragOver={isCanvaDragOver}
+                setIsDragOver={setIsCanvaDragOver}
+                fileInputRef={canvaFileInputRef}
                 onClick={() => setArtwork('canva')}
-                onScrollToUpload={scrollToUpload}
+                onPickFile={handleCanvaFile}
+                onOpenFileDialog={openCanvaDialog}
+                onClear={() => update({ uploadedFile: null })}
+                onDrop={handleCanvaDrop}
               />
               <UploadArtworkCard
                 cardRef={uploadCardRef}
                 fileInputRef={fileInputRef}
                 active={artworkPath === 'upload'}
-                uploadedFile={uploadedFile}
-                dimmed={artworkPath === 'design-for-me'}
+                uploadedFile={artworkPath === 'upload' ? uploadedFile : null}
+                dimmed={artworkPath === 'design-for-me' || artworkPath === 'quote-only'}
                 isDragOver={isDragOver}
                 setIsDragOver={setIsDragOver}
                 onClick={() => setArtwork('upload')}
-                onPickFile={handleFile}
-                onOpenFileDialog={openFileDialog}
+                onPickFile={handleUploadFile}
+                onOpenFileDialog={openUploadDialog}
                 onClear={() => update({ uploadedFile: null })}
-                onDrop={handleDrop}
+                onDrop={handleUploadDrop}
               />
               <DIYArtworkCard
                 active={artworkPath === 'design-for-me'}
+                dimmed={artworkPath === 'quote-only'}
                 onClick={() => setArtwork('design-for-me')}
+              />
+              <QuoteOnlyArtworkCard
+                active={artworkPath === 'quote-only'}
+                dimmed={artworkPath === 'design-for-me'}
+                onClick={() => setArtwork('quote-only')}
               />
             </div>
           </section>
@@ -200,6 +247,12 @@ export default function Step2Design() {
       </aside>
     </div>
   );
+}
+
+function formatSize(bytes) {
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
 }
 
 /* ─── Size card ─────────────────────────────────────── */
@@ -287,7 +340,20 @@ function CustomSizePanel({ customSize, onChange }) {
 }
 
 /* ─── Canva artwork card ────────────────────────────── */
-function CanvaArtworkCard({ active, selectedSize, dimmed, onClick, onScrollToUpload }) {
+function CanvaArtworkCard({
+  active,
+  selectedSize,
+  dimmed,
+  uploadedFile,
+  isDragOver,
+  setIsDragOver,
+  fileInputRef,
+  onClick,
+  onPickFile,
+  onOpenFileDialog,
+  onClear,
+  onDrop,
+}) {
   const tpl = selectedSize && (selectedSize !== 'custom') && MPA_CANVA_TEMPLATES[selectedSize];
   const disabled = !tpl;
   const sizeDisplay = selectedSize ? selectedSize.replace('x', ' × ') : '';
@@ -304,6 +370,13 @@ function CanvaArtworkCard({ active, selectedSize, dimmed, onClick, onScrollToUpl
       data-disabled={disabled ? 'true' : 'false'}
       data-dimmed={(!disabled && dimmed) ? 'true' : 'false'}
       onClick={handleCardClick}
+      onDragOver={(e) => {
+        if (disabled || dimmed || !active) return;
+        e.preventDefault();
+        setIsDragOver(true);
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => { if (!disabled && !dimmed && active) onDrop(e); }}
       role="button"
       tabIndex={disabled ? -1 : 0}
       onKeyDown={(e) => {
@@ -340,19 +413,77 @@ function CanvaArtworkCard({ active, selectedSize, dimmed, onClick, onScrollToUpl
           >
             Open {sizeDisplay}" template in Canva ↗
           </a>
-          <div className="step2-art-canva-hint">
-            Done customizing? Export as PDF and{' '}
-            <button
-              type="button"
-              className="step2-art-link"
-              onClick={(e) => { e.stopPropagation(); onScrollToUpload(); }}
-            >
-              upload it below
-            </button>
-            .
-          </div>
+          {active && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  if (f) onPickFile(f);
+                  e.target.value = '';
+                }}
+              />
+              <div className="step2-art-canva-upload">
+                <div className="step2-art-canva-upload-label">
+                  After you export: drop your PDF here
+                </div>
+                <CanvaUploadZone
+                  uploadedFile={uploadedFile}
+                  isDragOver={isDragOver}
+                  onOpen={onOpenFileDialog}
+                  onClear={onClear}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+function CanvaUploadZone({ uploadedFile, isDragOver, onOpen, onClear }) {
+  if (uploadedFile) {
+    return (
+      <div className="step2-upload-accepted" onClick={(e) => e.stopPropagation()}>
+        <div className="step2-upload-row">
+          <div className="step2-upload-check">✓</div>
+          <div className="step2-upload-meta">
+            <div className="step2-upload-name" title={uploadedFile.name}>
+              {uploadedFile.name}
+            </div>
+            <div className="step2-upload-size">{uploadedFile.size}</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="step2-upload-replace"
+          onClick={(e) => { e.stopPropagation(); onClear(); }}
+        >
+          Replace file
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div
+      className={isDragOver ? 'step2-upload-zone step2-upload-zone--active' : 'step2-upload-zone step2-upload-zone--canva'}
+      onClick={(e) => { e.stopPropagation(); onOpen(); }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onOpen();
+        }
+      }}
+    >
+      <div className="step2-upload-arrow">⤒</div>
+      <div className="step2-upload-label">Drop PDF here or click to browse</div>
     </div>
   );
 }
@@ -399,7 +530,7 @@ function UploadArtworkCard({
       <div className="step2-art-icon"><UploadIcon active={active} /></div>
       <div className="step2-art-title">Upload print-ready PDF</div>
       <div className="step2-art-sub">
-        You've got the artwork. Drop a CMYK PDF with 0.125″ bleed.
+        Already have a design? Upload your PDF — we'll check it and fix anything off.
       </div>
       <div className="step2-art-spacer" />
       <input
@@ -473,15 +604,17 @@ function UploadZone({ active, uploadedFile, onOpen, onClear }) {
 }
 
 /* ─── Design-for-me card ────────────────────────────── */
-function DIYArtworkCard({ active, onClick }) {
+function DIYArtworkCard({ active, dimmed, onClick }) {
   return (
     <div
       className="step2-art-card"
       data-active={active ? 'true' : 'false'}
-      onClick={onClick}
+      data-dimmed={dimmed ? 'true' : 'false'}
+      onClick={() => { if (!dimmed) onClick(); }}
       role="button"
-      tabIndex={0}
+      tabIndex={dimmed ? -1 : 0}
       onKeyDown={(e) => {
+        if (dimmed) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onClick();
@@ -494,10 +627,39 @@ function DIYArtworkCard({ active, onClick }) {
         Our team designs your postcard. Share your goal and any photos — we'll quote design + print together.
       </div>
       <div className="step2-art-diy-note">
-        No artwork upload required. Design services included in your custom quote.
+        Typical turnaround: 2 business days. Design fee confirmed in your custom quote — no charge until you approve.
       </div>
       <div className="step2-art-spacer" />
       <div className="step2-art-cta">Include in my request →</div>
+    </div>
+  );
+}
+
+/* ─── Quote-only artwork card ───────────────────────── */
+function QuoteOnlyArtworkCard({ active, dimmed, onClick }) {
+  return (
+    <div
+      className="step2-art-card"
+      data-active={active ? 'true' : 'false'}
+      data-dimmed={dimmed ? 'true' : 'false'}
+      onClick={() => { if (!dimmed) onClick(); }}
+      role="button"
+      tabIndex={dimmed ? -1 : 0}
+      onKeyDown={(e) => {
+        if (dimmed) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <div className="step2-art-icon"><ReceiptIcon active={active} /></div>
+      <div className="step2-art-title">Just get me a quote</div>
+      <div className="step2-art-sub">
+        No artwork needed yet. We'll send pricing based on your routes + postcard size, then you can decide on artwork later.
+      </div>
+      <div className="step2-art-spacer" />
+      <div className="step2-art-cta">Get pricing only →</div>
     </div>
   );
 }
@@ -537,9 +699,17 @@ function EmptyQuote({ pricingVisible }) {
 
 function QuoteSummary({ qty, sel, artworkPath, uploadedFile, canContinue, onContinue }) {
   let artworkLabel = 'Not chosen yet';
-  if (artworkPath === 'canva') artworkLabel = 'Canva template (upload after customizing)';
-  else if (artworkPath === 'upload') artworkLabel = uploadedFile ? truncate(uploadedFile.name, 24) : 'Uploading PDF';
-  else if (artworkPath === 'design-for-me') artworkLabel = 'MPA design services';
+  if (artworkPath === 'canva') {
+    artworkLabel = uploadedFile
+      ? truncate(uploadedFile.name, 24)
+      : 'Canva template (upload after customizing)';
+  } else if (artworkPath === 'upload') {
+    artworkLabel = uploadedFile ? truncate(uploadedFile.name, 24) : 'Uploading PDF';
+  } else if (artworkPath === 'design-for-me') {
+    artworkLabel = 'MPA design services';
+  } else if (artworkPath === 'quote-only') {
+    artworkLabel = 'Decide after quote';
+  }
 
   const showDesignBadge = artworkPath === 'design-for-me';
   const qtyLabel = qty > 0 ? `${fmtN(qty)} pieces` : 'Pieces TBD';
@@ -631,14 +801,15 @@ function CustomQuote({ customSize, customReady, canContinue, onContinue }) {
 
 function QuoteBreakdown({ qty, sel, artworkPath, canContinue, onContinue }) {
   // Note: pricing-visible path is shown only when MPA_PRICING_VISIBLE flips true.
-  // All operands here are simple arithmetic, no mixed comparisons — safe from
-  // no-mixed-operators. Placeholder rates until the real card lands.
-  const unitCost = sel.price != null ? sel.price : 0;
+  // All operands here are simple arithmetic; mixed-operator expressions are
+  // parenthesized below for CRA's no-mixed-operators. Placeholder rates until
+  // the real card lands.
+  const unitCost = (sel.price != null) ? sel.price : 0;
   const printing = unitCost * qty;
-  const bundling = Math.max(12, qty * 0.015);
+  const bundling = Math.max(12, (qty * 0.015));
   const postage = qty * POSTAGE_PER_PIECE;
   const total = printing + bundling + postage;
-  const perHH = qty > 0 ? total / qty : 0;
+  const perHH = qty > 0 ? (total / qty) : 0;
 
   return (
     <>
@@ -806,6 +977,18 @@ function BrushIcon({ active }) {
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
       <path d="M20 4 L24 8 L12 20 L7 21 L8 16 Z" stroke={c} strokeWidth="1.5" strokeLinejoin="round" />
       <path d="M4 24 L9 19" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ReceiptIcon({ active }) {
+  const c = active ? 'var(--mpa-v2-red)' : 'var(--mpa-v2-ink)';
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <path d="M6 3 V25 L9 23 L12 25 L15 23 L18 25 L21 23 L22 25 V3 Z" stroke={c} strokeWidth="1.5" strokeLinejoin="round" fill="none" />
+      <path d="M10 9 H18" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M10 13 H18" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M10 17 H15" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
