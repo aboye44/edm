@@ -48,8 +48,12 @@ export default function Step1Plan() {
   // programmatically when the "By address + radius" tab submits.
   const [mode, setMode] = useState('click');
   const [radius, setRadius] = useState(3);
+  // Initial state: null center + zoom 4 → MapPane falls back to its
+  // continental US default center (lat 39.5, lng -98.5). Once the user
+  // searches, handleZipChange/handleRadiusSearch below set mapZoom to
+  // the appropriate tight-in zoom (11 for ZIP, 12 for radius etc.).
   const [mapCenter, setMapCenter] = useState(null);
-  const [mapZoom, setMapZoom] = useState(12);
+  const [mapZoom, setMapZoom] = useState(4);
   const [circleCenter, setCircleCenter] = useState(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [tilesFailDismissed, setTilesFailDismissed] = useState(false);
