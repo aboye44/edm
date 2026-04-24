@@ -248,7 +248,9 @@ export default function Step1Plan() {
     reset();
     clearRoutes();
     setMapCenter(null);
-    setMapZoom(12);
+    // Match the initial mount default so Start over returns to the
+    // continental US view, not the old Lakeland zoom.
+    setMapZoom(4);
     setCircleCenter(null);
     setRadius(3);
     setMode('click');
