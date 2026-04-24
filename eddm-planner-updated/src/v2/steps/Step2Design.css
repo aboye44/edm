@@ -10,7 +10,7 @@
 .step2-root {
   display: grid;
   grid-template-columns: 1fr 380px;
-  min-height: calc(100vh - 60px); /* under v2-header (60px) */
+  min-height: calc(100vh - var(--v2-chrome-offset)); /* 64px MPA + 60px wizard */
   background: var(--mpa-v2-cream);
   color: var(--mpa-v2-ink);
   font-family: var(--mpa-v2-font-sans);

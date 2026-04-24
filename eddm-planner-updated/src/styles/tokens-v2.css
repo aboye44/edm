@@ -50,4 +50,13 @@
   --mpa-v2-shadow-map-overlay-lg:   0 6px 24px rgba(31, 26, 18, 0.08);
   --mpa-v2-shadow-cta-red-desktop:  0 4px 14px rgba(192, 58, 63, 0.28);
   --mpa-v2-shadow-cta-red-mobile:   0 4px 14px rgba(192, 58, 63, 0.25);
+
+  /* ─── Chrome offset ───
+   * public/index.html gives #root padding-top: 64px so React content
+   * sits under the fixed MPA header. The v2 wizard adds its own 60px
+   * header inside the React tree. Viewport math for "usable inner
+   * height" must account for BOTH — 64 + 60 = 124px. Previously every
+   * step CSS used `calc(100vh - 60px)`, which ignored the 64px MPA
+   * chrome and produced a permanent scrollbar on every step. */
+  --v2-chrome-offset: 124px;
 }

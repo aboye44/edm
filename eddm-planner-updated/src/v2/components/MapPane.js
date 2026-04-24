@@ -152,12 +152,14 @@ export default function MapPane({
   const mapRef = useRef(null);
   const circleRef = useRef(null);
   const [hovered, setHovered] = useState(null);
-  // Map options computed once at mount — rebuilt on window resize isn't
-  // necessary because phones rarely cross the 767px threshold mid-session.
-  const mapOptionsRef = useRef(null);
-  if (mapOptionsRef.current === null) {
-    mapOptionsRef.current = buildMapOptions();
-  }
+  // P1-7: map options are stateful so we can rebuild them when the
+  // viewport crosses the 767px threshold (orientation change, window
+  // resize) — otherwise `gestureHandling` stays frozen at whatever it
+  // was at mount. Stashing the latest options on the ref as well so
+  // the GoogleMap options prop always starts with the freshest value.
+  const [mapOptions, setMapOptions] = useState(() => buildMapOptions());
+  const mapOptionsRef = useRef(mapOptions);
+  mapOptionsRef.current = mapOptions;
   const tilesLoadedRef = useRef(false);
   // P1-4: track the tile-fail timer at the component level so unmount
   // can clear it. Previously the timer was stashed on map.__v2_tile_watch
@@ -195,6 +197,35 @@ export default function MapPane({
       }
     });
   };
+
+  // P1-7: rebuild map options when the viewport changes size or
+  // orientation. Debounced 200ms so a drag-resize doesn't thrash
+  // setOptions() on the live map. Also applies the new options to
+  // the live map instance if it's already loaded — new props alone
+  // don't force react-google-maps to re-apply options after mount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    let timer = null;
+    const reapply = () => {
+      const next = buildMapOptions();
+      setMapOptions(next);
+      const map = mapRef.current;
+      if (map && typeof map.setOptions === 'function') {
+        try { map.setOptions(next); } catch (_) { /* ignore */ }
+      }
+    };
+    const onResize = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(reapply, 200);
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
 
   // P1-4: clean up the tile-fail timer + listener on unmount so they
   // can't fire after the component is gone.
@@ -331,7 +362,7 @@ export default function MapPane({
           mapContainerStyle={{ width: '100%', height: '100%' }}
           center={effectiveCenter}
           zoom={effectiveZoom}
-          options={mapOptionsRef.current}
+          options={mapOptions}
           onLoad={handleMapLoad}
         >
           {mode === 'draw' && (
@@ -369,7 +400,11 @@ export default function MapPane({
               onLoad={handleCircleLoad}
               onDragEnd={handleCircleDragEnd}
               onRadiusChanged={handleCircleRadiusChange}
-              onCenterChanged={handleCircleDragEnd}
+              /* P1-5: onCenterChanged removed — it fires on every
+                 programmatic setCenter call (including our own
+                 rehydration useEffect), creating a feedback loop
+                 where the circle jitters between two near-identical
+                 positions. onDragEnd alone captures user drags. */
             />
           )}
 

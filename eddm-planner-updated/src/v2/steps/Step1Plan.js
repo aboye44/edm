@@ -72,7 +72,25 @@ export default function Step1Plan() {
   // P1-1: must be sequential. fetchZip shares a single abortRef, so
   // `forEach(fetchZip)` aborts every call except the last -> after reload
   // only the last ZIP's routes actually land. fetchZips awaits each call.
+  //
+  // P0-3: if the user is returning to a radius plan (persisted via
+  // state.searchMode === 'radius' + state.radiusSearch), we also need
+  // to restore local component state so the Circle re-renders, the map
+  // centers on the saved address, and the radius dropdown shows the
+  // saved value. Without this rehydration the UI boots in default click
+  // mode at 3mi/null-center every time the page reloads.
   useEffect(() => {
+    if (state.searchMode === 'radius' && state.radiusSearch) {
+      setMode('radius');
+      if (typeof state.radiusSearch.radius === 'number') {
+        setRadius(state.radiusSearch.radius);
+      }
+      if (state.radiusSearch.center) {
+        setCircleCenter(state.radiusSearch.center);
+        setMapCenter(state.radiusSearch.center);
+        setMapZoom(12);
+      }
+    }
     if (state.zips && state.zips.length > 0) {
       fetchZips(state.zips);
     }
@@ -368,13 +386,79 @@ export default function Step1Plan() {
   };
 
   // ── Location copy ────────────────────────────────────────────────
+  // P0-1 fix: stop hardcoding "Lakeland, FL" for every ZIP. In radius
+  // mode we have a label (e.g. "430 N Washington Ave") so use that.
+  // In ZIP mode, try to pull a city/state from the first loaded route —
+  // the USPS ArcGIS transform doesn't currently capture `city`/`state`
+  // attributes, so this resolver is forward-compatible: if we later add
+  // those fields to transformFeature() this code picks them up
+  // automatically. If no city is resolvable, we show just the ZIPs —
+  // better to show nothing than the wrong city.
   const primaryZip = state.zips[0];
-  const zipsSuffix =
+  const zipsOnlyList =
     state.zips.length === 0
       ? ''
       : state.zips.length === 1
-      ? `· ${primaryZip}`
-      : `· ${state.zips.length} ZIPs`;
+      ? primaryZip
+      : `${state.zips.length} ZIPs`;
+
+  const routeCity = (() => {
+    const first = routes[0];
+    if (!first) return null;
+    const city = first.city || first.CITY || first.cityName;
+    const stateCode = first.state || first.STATE || first.stateCode;
+    if (city && stateCode) return `${city}, ${stateCode}`;
+    if (city) return city;
+    // Some ArcGIS endpoints stuff "City, ST 33801" into one field.
+    if (first.cityStateZip) {
+      const match = /^([^,]+),\s*([A-Z]{2})/i.exec(first.cityStateZip);
+      if (match) return `${match[1].trim()}, ${match[2].toUpperCase()}`;
+    }
+    return null;
+  })();
+
+  const mailingAreaLabel = (() => {
+    // P1-6: empty-state branches on searchMode. In radius mode the
+    // circle overlay is already painting, and ZIPs are still being
+    // discovered — the old "Enter a ZIP to begin" copy was misleading.
+    if (state.zips.length === 0) {
+      if (state.searchMode === 'radius' && state.radiusSearch?.label) {
+        return `Finding routes around ${state.radiusSearch.label}\u2026`;
+      }
+      if (state.searchMode === 'radius') {
+        return 'Finding routes around your address\u2026';
+      }
+      return 'Enter a ZIP to begin';
+    }
+    if (state.searchMode === 'radius' && state.radiusSearch?.label) {
+      const miles = state.radiusSearch.radius;
+      const prefix = miles != null
+        ? `${miles}-mile radius around`
+        : 'Radius around';
+      return `${prefix} ${state.radiusSearch.label}`;
+    }
+    if (routeCity) {
+      return zipsOnlyList
+        ? `${routeCity} \u00B7 ${zipsOnlyList}`
+        : routeCity;
+    }
+    // Last resort: ZIPs only, no wrong-city prefix.
+    return zipsOnlyList;
+  })();
+
+  // Subhero copy ("in Lakeland") similarly gated on an actual city.
+  const routesLocationSuffix = (() => {
+    if (state.searchMode === 'radius' && state.radiusSearch?.label) {
+      return ` in ${state.radiusSearch.label}`;
+    }
+    if (routeCity) {
+      // Trim the ", FL" state suffix for readability: "in Orlando" beats
+      // "in Orlando, FL" in a conversational subhero.
+      const cityOnly = routeCity.split(',')[0].trim();
+      return cityOnly ? ` in ${cityOnly}` : '';
+    }
+    return '';
+  })();
 
   const availableCount = routes.length;
   const avgIncomeK = Math.round((totals.avgIncome || 0) / 1000);
@@ -553,9 +637,7 @@ export default function Step1Plan() {
         <section className="step1-mailing-area">
           <Eyebrow>Mailing Area</Eyebrow>
           <div className="step1-mailing-area-city">
-            {state.zips.length === 0
-              ? 'Enter a ZIP to begin'
-              : `Lakeland, FL ${zipsSuffix}`}
+            {mailingAreaLabel}
           </div>
           {state.zips.length > 0 && (
             <div className="step1-delivery-toggle">
@@ -588,7 +670,7 @@ export default function Step1Plan() {
             Your postcard lands in{' '}
             <strong>{fmtN(hhAnim)} real mailboxes</strong> across{' '}
             {totals.count} USPS carrier{' '}
-            {totals.count === 1 ? 'route' : 'routes'} in Lakeland.
+            {totals.count === 1 ? 'route' : 'routes'}{routesLocationSuffix}.
           </p>
         </section>
 

@@ -81,7 +81,18 @@ export default function Step3Review() {
     phone: !phone.trim() ? 'Phone is required' : '',
   };
 
+  // P1-2: gate submission on the prerequisite Plan + Design steps being
+  // complete. Without this the user can click "3. Review" in the nav,
+  // fill contact info, and submit an empty campaign — SendGrid ships us
+  // a useless lead that says "Area: Not specified, Size: TBD, Design:
+  // Not specified."
+  const planComplete =
+    typeof totalHH === 'number' && totalHH > 0 &&
+    size != null &&
+    artworkPath != null;
+
   const canSubmit =
+    planComplete &&
     !fieldErrors.name &&
     !fieldErrors.email &&
     !fieldErrors.phone &&
@@ -410,13 +421,15 @@ export default function Step3Review() {
 
             <div className="step3-submit-row">
               <div className="step3-cta-footnote">
-                A MailPro print strategist will email you pricing within one
-                business day.
+                {planComplete
+                  ? 'A MailPro print strategist will email you pricing within one business day.'
+                  : 'Complete the Plan + Design steps first — your routes, size, and artwork path are required.'}
               </div>
               <button
                 type="submit"
                 className="step3-cta"
                 disabled={!canSubmit}
+                title={!planComplete ? 'Complete Plan + Design steps first' : undefined}
               >
                 {submitState === 'sending' ? 'Sending…' : 'Request quote →'}
               </button>

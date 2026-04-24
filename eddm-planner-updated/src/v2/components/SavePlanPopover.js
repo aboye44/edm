@@ -1,41 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Eyebrow from '../primitives/Eyebrow';
 
 /**
  * Save-plan popover — triggered by a utility-style "Save this plan" link.
  *
- * Inline, no modal. Single email input + named campaign input. On submit,
- * POSTs to `/.netlify/functions/save-plan`; if the endpoint is missing we
- * still show the inline "Sent!" confirmation (the real backend wiring lands
- * in a later phase).
+ * P1-1 honesty fix: the previous revision POSTed to
+ * `/.netlify/functions/save-plan`, which doesn't exist on this deploy,
+ * and silently fell back to showing a "Check your inbox!" confirmation
+ * regardless of what the server returned. Users thought a save email
+ * went out when nothing had happened.
  *
- * Spec: README § "Step 1 — Enhanced features → Save-plan popover".
+ * Current behavior: no network call, no email. PlannerContext already
+ * persists state to localStorage, so bookmarking the page is enough to
+ * return to the same plan. When we later wire a real save-plan endpoint
+ * (post-cutover, probably on Cloudflare Functions), we can restore the
+ * email flow here — the component shape can stay the same.
  */
-export default function SavePlanPopover({ onClose, plannerState }) {
-  const [email, setEmail] = useState('');
-  const [campaign, setCampaign] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | sending | sent | error
-
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
-    setStatus('sending');
-    try {
-      const resp = await fetch('/.netlify/functions/save-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, campaign, planner: plannerState || null }),
-      });
-      if (!resp.ok) throw new Error('save-plan endpoint not available');
-      setStatus('sent');
-    } catch (err) {
-      // Endpoint not yet wired — fall back to a console log + success UI.
-      // eslint-disable-next-line no-console
-      console.log('[v2/save-plan stub]', { email, campaign, plannerState });
-      setStatus('sent');
-    }
-  };
-
+export default function SavePlanPopover({ onClose }) {
   return (
     <div
       className="v2-save-popover"
@@ -48,66 +29,29 @@ export default function SavePlanPopover({ onClose, plannerState }) {
           fontSize: 14,
           fontWeight: 500,
           marginTop: 4,
-          marginBottom: 3,
+          marginBottom: 8,
         }}
       >
-        Email me a link to this plan
+        Your plan is saved locally
       </div>
       <div
         style={{
-          fontSize: 11.5,
-          color: 'var(--mpa-v2-slate)',
-          marginBottom: 12,
-          lineHeight: 1.45,
+          fontSize: 12.5,
+          color: 'var(--mpa-v2-ink-soft)',
+          marginBottom: 14,
+          lineHeight: 1.5,
         }}
       >
-        Come back any time. Your routes, size, and totals stay saved.
+        Bookmark this page to come back — your routes, size, and totals
+        stay in your browser until you clear them or hit <em>Start over</em>.
       </div>
-
-      {status !== 'sent' && (
-        <form onSubmit={submit}>
-          <input
-            type="text"
-            placeholder="Campaign name (e.g. Spring roof promo)"
-            value={campaign}
-            onChange={(e) => setCampaign(e.target.value)}
-            className="v2-save-input"
-            aria-label="Campaign name"
-          />
-          <input
-            type="email"
-            placeholder="you@company.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="v2-save-input"
-            aria-label="Email address"
-            required
-          />
-          <button
-            type="submit"
-            className="v2-save-submit"
-            disabled={status === 'sending'}
-          >
-            {status === 'sending' ? 'Sending…' : 'Send me the link'}
-          </button>
-        </form>
-      )}
-
-      {status === 'sent' && (
-        <div className="v2-save-confirm">
-          <span style={{ color: 'var(--mpa-v2-red)', fontWeight: 600 }}>
-            &#10003;
-          </span>{' '}
-          Check your inbox — we emailed a link to your plan.
-        </div>
-      )}
 
       <button
         type="button"
         onClick={onClose}
-        className="v2-save-cancel"
+        className="v2-save-submit"
       >
-        {status === 'sent' ? 'Close' : 'Cancel'}
+        Got it
       </button>
     </div>
   );

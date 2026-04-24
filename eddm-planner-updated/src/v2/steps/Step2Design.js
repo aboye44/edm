@@ -10,6 +10,13 @@ import './Step2Design.css';
 // USPS EDDM retail flat rate 2026 — only referenced when MPA_PRICING_VISIBLE is true.
 const POSTAGE_PER_PIECE = 0.359;
 
+// P1-4: reject oversize uploads at pick time, not at Step 3 submit.
+// Must match Step3Review.js MAX_ARTWORK_BYTES exactly — Step 3 keeps its
+// own check as a safety net in case a bad file slips past (e.g. a user
+// who skipped Step 2 via direct URL).
+const MAX_ARTWORK_BYTES = 4 * 1024 * 1024;
+const MAX_ARTWORK_LABEL = '4 MB';
+
 const SIZES = [
   { id: '6.25x9',  name: '6.25 × 9',  label: 'Standard', tag: 'Postcard, EDDM-eligible', price: 0.098 },
   { id: '6.25x11', name: '6.25 × 11', label: 'Long',     tag: 'Extra room for details',  price: 0.128 },
@@ -37,6 +44,9 @@ export default function Step2Design() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCanvaDragOver, setIsCanvaDragOver] = useState(false);
   const [savePopover, setSavePopover] = useState(false);
+  // P1-4: inline upload error (primarily oversize > 4 MB). Cleared
+  // whenever a valid file is picked.
+  const [uploadError, setUploadError] = useState(null);
 
   const { size, customSize, artworkPath, uploadedFile, totalHH } = state;
   const sel = size ? SIZES.find((s) => s.id === size) : null;
@@ -65,13 +75,32 @@ export default function Step2Design() {
 
   const setArtwork = (path) => update({ artworkPath: path });
 
+  // P1-4: reject oversize artwork at pick time. Returns true if the file
+  // was rejected so callers can bail before mutating state.
+  const rejectIfOversize = (file) => {
+    if (!file) return false;
+    if (file.size > MAX_ARTWORK_BYTES) {
+      setUploadError(
+        `File "${truncate(file.name, 40)}" is ${formatSize(file.size)}, ` +
+        `larger than the ${MAX_ARTWORK_LABEL} cap. Please compress it, or ` +
+        `email artwork to orders@mailpro.org after submitting this form.`
+      );
+      return true;
+    }
+    return false;
+  };
+
   // Upload-card handler: stamps artworkPath to 'upload'
   const handleUploadFile = (file) => {
     if (!file) return;
-    if ((!/\.pdf$/i.test(file.name)) && (file.type !== 'application/pdf')) {
-      // Best-effort: accept anyway if extension is missing, but prefer PDFs.
-      // We intentionally do not reject loudly — the upstream PDF check happens
-      // after quote submission, not in the browser.
+    if (rejectIfOversize(file)) return;
+    setUploadError(null);
+    if ((!/\.(pdf|jpe?g|png)$/i.test(file.name)) &&
+        (file.type !== 'application/pdf') &&
+        (file.type !== 'image/jpeg') &&
+        (file.type !== 'image/png')) {
+      // Best-effort: accept anyway if extension is missing, but prefer
+      // PDFs/JPGs/PNGs. Upstream PDF check happens post-submission.
     }
     const sizeStr = formatSize(file.size);
     // Stash the raw File in memory so Step 3 can base64-encode + attach it.
@@ -91,6 +120,8 @@ export default function Step2Design() {
   // Canva-card inline upload: preserves artworkPath === 'canva'
   const handleCanvaFile = (file) => {
     if (!file) return;
+    if (rejectIfOversize(file)) return;
+    setUploadError(null);
     const sizeStr = formatSize(file.size);
     setUploadedFileBlob(file);
     update({
@@ -188,6 +219,24 @@ export default function Step2Design() {
             <p className="step2-h2-sub">
               Pick one. You can always swap later — nothing's locked in until you approve the final quote.
             </p>
+
+            {uploadError && (
+              <div
+                role="alert"
+                style={{
+                  margin: '12px 0',
+                  padding: '10px 14px',
+                  background: 'var(--mpa-v2-red-wash)',
+                  color: 'var(--mpa-v2-red)',
+                  fontSize: 12.5,
+                  lineHeight: 1.5,
+                  borderLeft: '3px solid var(--mpa-v2-red)',
+                  fontWeight: 500,
+                }}
+              >
+                {uploadError}
+              </div>
+            )}
 
             <div className="step2-artwork">
               <CanvaArtworkCard
@@ -442,7 +491,7 @@ function CanvaArtworkCard({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,application/pdf"
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   const f = e.target.files && e.target.files[0];
@@ -560,7 +609,7 @@ function UploadArtworkCard({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,application/pdf"
+        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
         style={{ display: 'none' }}
         onChange={(e) => {
           const f = e.target.files && e.target.files[0];

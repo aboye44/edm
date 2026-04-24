@@ -9,7 +9,7 @@
  * ───────────────────────────────────────────────────────────── */
 
 .step4-root {
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - var(--v2-chrome-offset));
   background: var(--mpa-v2-cream);
   color: var(--mpa-v2-ink);
   font-family: var(--mpa-v2-font-sans);
