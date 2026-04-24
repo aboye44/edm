@@ -14,8 +14,13 @@ import {
 // is used by the ZIP search bar's autocomplete.
 export const V2_MAP_LIBRARIES = ['places', 'drawing'];
 
-const DEFAULT_CENTER = { lat: 28.0395, lng: -81.9498 }; // Lakeland, FL
-const DEFAULT_ZOOM = 12;
+// Default view: continental US center (roughly Lebanon, Kansas — the
+// geographic center of the lower 48). Zoom 4 shows coast-to-coast on
+// most laptop viewports. This signals to visitors that MPA serves the
+// whole country, not just the Lakeland HQ. The map re-centers + zooms
+// once a user searches a ZIP or address.
+const DEFAULT_CENTER = { lat: 39.5, lng: -98.5 };
+const DEFAULT_ZOOM = 4;
 
 // Build map options on demand so we can pick the right gestureHandling
 // based on viewport. On phones, "greedy" lets single-finger pan work — users
