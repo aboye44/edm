@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
 import '../styles/tokens-v2.css';
 import './V2Shell.css';
@@ -18,17 +18,28 @@ export default function V2Shell() {
     STEPS.findIndex((s) => s.path === currentPath)
   );
 
+  // Hide the v2 brand block when MPA chrome is present (injected by the IIFE
+  // in public/index.html). The stepper + help link stay — they're the wizard
+  // indicator, not site nav. Prevents a double-header on /eddm/.
+  const [hasMpaChrome, setHasMpaChrome] = useState(false);
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    setHasMpaChrome(Boolean(document.getElementById('mpa-header')));
+  }, []);
+
   return (
     <div className="v2-root">
       <header className="v2-header">
-        <div className="v2-brand">
-          <span className="v2-brand-name v2-brand-name--full">
-            MailPro &middot; EDDM Planner
-          </span>
-          <span className="v2-brand-name v2-brand-name--short" aria-hidden="true">
-            EDDM Planner
-          </span>
-        </div>
+        {!hasMpaChrome && (
+          <div className="v2-brand">
+            <span className="v2-brand-name v2-brand-name--full">
+              MailPro &middot; EDDM Planner
+            </span>
+            <span className="v2-brand-name v2-brand-name--short" aria-hidden="true">
+              EDDM Planner
+            </span>
+          </div>
+        )}
         {/* Desktop: full text step nav. Hidden on mobile. */}
         <nav className="v2-stepnav v2-stepnav--desktop" aria-label="Progress">
           {STEPS.map((step) => (
