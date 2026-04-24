@@ -63,6 +63,10 @@ export default function Step1Plan() {
   // P1-6: ref for the ZIP search input, used by "+ Add another ZIP" to focus
   // instead of document.querySelector (which breaks if DOM structure shifts).
   const zipInputRef = useRef(null);
+  // Mobile-fix: counter increment triggers SearchTabs to expand + focus.
+  // Direct ref.focus() from here fails on mobile because when SearchTabs
+  // is collapsed into a summary chip, the input isn't in the DOM yet.
+  const [zipFocusSignal, setZipFocusSignal] = useState(0);
 
   // Sync fetched routes - auto-fetch any persisted ZIPs on mount once.
   // P1-1: must be sequential. fetchZip shares a single abortRef, so
@@ -450,6 +454,7 @@ export default function Step1Plan() {
                   geocoding={loading && routes.length === 0}
                   showInvalid={Boolean(inlineInvalidZip)}
                   zipInputRef={zipInputRef}
+                  zipFocusSignal={zipFocusSignal}
                   summaryLabel={searchSummaryLabel}
                 />
                 {/* P1-5: multi-ZIP chip row + "Add another ZIP" only makes
@@ -474,9 +479,13 @@ export default function Step1Plan() {
                       type="button"
                       className="step1-add-zip"
                       onClick={() => {
-                        // P1-6: focus via ref instead of document.querySelector.
-                        // Ref survives re-renders and doesn't break if DOM shifts.
-                        if (zipInputRef.current) zipInputRef.current.focus();
+                        // Mobile-fix: on phones, SearchTabs may be collapsed
+                        // into a summary chip — the input isn't in the DOM
+                        // yet, so direct .focus() fails silently. Incrementing
+                        // the signal expands SearchTabs AND focuses the input
+                        // on the next tick. Also covers desktop where the
+                        // input is already mounted (focus still runs fine).
+                        setZipFocusSignal((s) => s + 1);
                       }}
                     >
                       + Add another ZIP

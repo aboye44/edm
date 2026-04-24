@@ -57,6 +57,11 @@ export default function SearchTabs({
   zipInputRef,
   // Mobile collapse — summary label to show on the collapsed chip.
   summaryLabel = '',
+  // Mobile-fix: when "Add another ZIP" is tapped on mobile while
+  // SearchTabs is collapsed, parent increments this counter so we can
+  // expand AND focus in one gesture. Parent-side .focus() alone doesn't
+  // work on mobile because the input isn't in the DOM when collapsed.
+  zipFocusSignal = 0,
 }) {
   // ── ZIP tab state ──
   const [zipVal, setZipVal] = useState('');
@@ -79,6 +84,23 @@ export default function SearchTabs({
     // When it goes away (start over), auto-expand.
     setMobileOpen(!hasActivePlan);
   }, [hasActivePlan]);
+
+  // Mobile-fix: handle "Add another ZIP" tap from the sidebar. Parent
+  // increments zipFocusSignal; we expand the collapsed tabs, switch to
+  // the ZIP tab, then focus on the next tick so the input is in the DOM.
+  useEffect(() => {
+    if (zipFocusSignal === 0) return;
+    setMobileOpen(true);
+    if (onModeChange) onModeChange('zip');
+    // Next tick — after expand re-renders and the input mounts.
+    const id = window.setTimeout(() => {
+      if (zipInputRef && zipInputRef.current) {
+        try { zipInputRef.current.focus(); } catch (_) {}
+      }
+    }, 50);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zipFocusSignal]);
 
   const zipTrimmed = zipVal.trim();
   const zipOk = /^\d{5}$/.test(zipTrimmed);
