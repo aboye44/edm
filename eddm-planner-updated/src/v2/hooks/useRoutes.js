@@ -170,6 +170,28 @@ function transformFeature(feature, zip, index) {
   const res = attrs.RES_CNT || 0;
   const bus = attrs.BUS_CNT || 0;
 
+  // USPS exposes city/state under a few different attribute keys depending
+  // on the endpoint version. Pull whichever is populated so Step1Plan's
+  // sidebar can show a real "Lakeland, FL · 33801" label instead of just
+  // the bare ZIP. Fall back to null — the consumer renders the ZIP alone
+  // when city/state aren't available.
+  // USPS returns city names in ALL CAPS ("LAKELAND"). Title-case for
+  // display. State stays uppercase (2-letter abbreviation).
+  const rawCity = firstStringAttr(attrs, [
+    'CITY',
+    'PRIMARY_CITY',
+    'CITY_NAME',
+    'PO_NAME',
+  ]);
+  const city = rawCity ? titleCaseCity(rawCity) : null;
+  const rawState = firstStringAttr(attrs, [
+    'STATE',
+    'STATE_ABBR',
+    'STATE_CODE',
+    'ST',
+  ]);
+  const state = rawState ? rawState.toUpperCase() : null;
+
   return {
     id: `${zip}-${attrs.CRID_ID || index}`,
     name: attrs.CRID_ID || `Route ${index + 1}`,
@@ -184,10 +206,30 @@ function transformFeature(feature, zip, index) {
       'AVG_HH_INC',
       'MEDHHINC_CY',
     ]),
+    city,
+    state,
     coordinates: allCoordinates,
     centerLat,
     centerLng,
   };
+}
+
+// Return the first non-empty trimmed string value for any of the given keys.
+// Returns null if none are populated.
+function firstStringAttr(attrs, keys) {
+  for (const key of keys) {
+    const v = attrs?.[key];
+    if (typeof v === 'string' && v.trim().length > 0) return v.trim();
+  }
+  return null;
+}
+
+// Convert USPS's all-caps city ("LAKELAND", "ST PETERSBURG", "O'FALLON") to
+// Title Case for display. \b\w matches after apostrophes in JS regex, so
+// "O'FALLON" → "O'Fallon" correctly. Keeps hyphens intact: "WINSTON-SALEM"
+// → "Winston-Salem".
+function titleCaseCity(s) {
+  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function useRoutes(initialZips = null) {
