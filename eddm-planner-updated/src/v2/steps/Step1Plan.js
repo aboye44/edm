@@ -623,7 +623,12 @@ export default function Step1Plan() {
       </div>
 
       {/* ── Sidebar ─────────────────────────────────────────────── */}
+      {/* Two-region layout: top section scrolls internally if content
+          overflows; bottom section (trust + CTA + footnote) stays
+          pinned in the viewport so the user never has to scroll to
+          reach "Continue to design". */}
       <aside className="step1-sidebar">
+        <div className="step1-sidebar-scroll">
         <div className="step1-sidebar-head">
           <button
             type="button"
@@ -767,29 +772,33 @@ export default function Step1Plan() {
           </>
         )}
 
-        <div className="step1-trust">
-          <div>
-            <span className="step1-trust-check">✓</span> USPS delivers to
-            every door — no mailing list needed
-          </div>
-          <div>
-            <span className="step1-trust-check">✓</span> Save your plan free.
-            Pay only when you order.
-          </div>
-        </div>
+        </div> {/* /step1-sidebar-scroll */}
 
-        <button
-          type="button"
-          className="step1-cta"
-          disabled={totals.count === 0}
-          onClick={handleContinue}
-        >
-          Continue to design →
-        </button>
+        <div className="step1-sidebar-pinned">
+          <div className="step1-trust">
+            <div>
+              <span className="step1-trust-check">✓</span> USPS delivers to
+              every door — no mailing list needed
+            </div>
+            <div>
+              <span className="step1-trust-check">✓</span> Save your plan free.
+              Pay only when you order.
+            </div>
+          </div>
 
-        <div className="step1-subcta">
-          Print &amp; design pricing on the next step &middot; Family-run in
-          Lakeland, FL since 1989
+          <button
+            type="button"
+            className="step1-cta"
+            disabled={totals.count === 0}
+            onClick={handleContinue}
+          >
+            Continue to design →
+          </button>
+
+          <div className="step1-subcta">
+            Print &amp; design pricing on the next step &middot; Family-run in
+            Lakeland, FL since 1989
+          </div>
         </div>
       </aside>
     </div>

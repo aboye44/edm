@@ -524,12 +524,32 @@
 
 /* ─── Sidebar ───────────────────────────────────────────────── */
 .step1-sidebar {
-  padding: 22px 28px 22px 22px;
-  overflow-y: auto;
+  /* Two-region flex column. The scroll region absorbs any vertical
+     overflow so the pinned region (trust + CTA + footnote) is always
+     visible without the user having to scroll the sidebar. */
   border-left: 1px solid var(--mpa-v2-line);
   background: var(--mpa-v2-cream);
   display: flex;
   flex-direction: column;
+  /* Constrain to the parent's height so the inner scroll region has
+     a bounded box to overflow against. The parent .step1-content
+     already enforces calc(100vh - var(--v2-chrome-offset)). */
+  min-height: 0;
+  overflow: hidden;
+}
+
+.step1-sidebar-scroll {
+  flex: 1 1 auto;
+  min-height: 0; /* required for flex-shrink to actually shrink */
+  overflow-y: auto;
+  padding: 22px 28px 16px 22px;
+}
+
+.step1-sidebar-pinned {
+  flex: 0 0 auto;
+  padding: 12px 28px 22px 22px;
+  border-top: 1px solid var(--mpa-v2-line);
+  background: var(--mpa-v2-cream);
 }
 
 .step1-sidebar-head {
