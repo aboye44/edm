@@ -1,7 +1,3 @@
-// Initialize Sentry error monitoring FIRST (before any other imports)
-// This ensures all errors are captured, even during app initialization
-import './sentry';
-
 import React from 'react';
 import ReactDOM from 'react-dom';
 import App from './App';

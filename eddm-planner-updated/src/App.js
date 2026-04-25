@@ -13,7 +13,14 @@ import './App.css';
 function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      {/*
+       * basename="/eddm" matches the production deploy path so client-side
+       * routing resolves correctly. With package.json "homepage": "/eddm/",
+       * webpack emits asset URLs as /eddm/static/... — basename mirrors that
+       * on the router side so <Link to="/v2"> renders /eddm/v2 and
+       * useNavigate('/v2/design') goes to /eddm/v2/design.
+       */}
+      <BrowserRouter basename="/eddm">
         <div className="App">
           <Routes>
             {/* Existing production tool — DO NOT MODIFY */}

@@ -903,9 +903,14 @@
   box-shadow: var(--mpa-v2-shadow-cta-red-desktop);
 }
 
+/*
+ * P1-5: disabled CTA contrast bumped to WCAG AA pass.
+ *   Old: bg=line + fg=slate → ~2.4:1, fails AA.
+ *   New: bg=line + fg=ink-soft → ~6:1, passes AA.
+ */
 .step1-cta:disabled {
   background: var(--mpa-v2-line);
-  color: var(--mpa-v2-slate);
+  color: var(--mpa-v2-ink-soft);
   cursor: not-allowed;
   box-shadow: none;
 }

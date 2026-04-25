@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlanner } from '../PlannerContext';
 import Eyebrow from '../primitives/Eyebrow';
 import fmtN from '../primitives/fmtN';
+import { track } from '../lib/analytics';
 import './Step3Review.css';
 
 /**
@@ -68,6 +69,12 @@ export default function Step3Review() {
   const [submitState, setSubmitState] = useState('idle'); // idle | sending | error
   const [submitError, setSubmitError] = useState('');
 
+  // P0-5: synchronous double-submit guard. Fires before React schedules the
+  // disabled re-render so the second click can't slip past `canSubmit`. Belt
+  // and suspenders alongside `submitState === 'sending'` (which is the
+  // primary defense, but can race a fast double-tap on slow devices).
+  const inFlightRef = useRef(false);
+
   const trimmedName = `${firstName.trim()} ${lastName.trim()}`.trim();
   const emailOk = EMAIL_RE.test(email.trim());
 
@@ -98,6 +105,24 @@ export default function Step3Review() {
     !fieldErrors.phone &&
     submitState !== 'sending';
 
+  // P1-10: name the SPECIFIC prerequisite that's missing instead of the
+  // generic "complete Plan + Design first" string. Order matters — callers
+  // want the upstream-most missing piece first, so the user fixes Step 1
+  // before Step 2 (which depends on it).
+  const prereqHint = (() => {
+    if (planComplete) return '';
+    if (typeof totalHH !== 'number' || totalHH === 0) {
+      return 'Pick at least one ZIP or radius area on Step 1.';
+    }
+    if (size == null) {
+      return 'Pick a piece size on Step 2.';
+    }
+    if (artworkPath == null) {
+      return 'Pick a design path on Step 2.';
+    }
+    return 'Complete the Plan and Design steps before requesting a quote.';
+  })();
+
   const markTouched = (key) => setTouched((t) => ({ ...t, [key]: true }));
   const showErr = (key) => touched[key] && fieldErrors[key];
 
@@ -108,6 +133,11 @@ export default function Step3Review() {
   // ─── Submit ───────────────────────────────────────────────
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    // P0-5: synchronous re-entry guard. A second click before React has
+    // a chance to flip `submitState` to 'sending' (and disable the button)
+    // gets short-circuited here.
+    if (inFlightRef.current) return;
+
     // Mark all required fields touched so errors render on a blind-click.
     setTouched({ name: true, email: true, phone: true });
     if (
@@ -115,6 +145,9 @@ export default function Step3Review() {
       fieldErrors.email ||
       fieldErrors.phone
     ) {
+      return;
+    }
+    if (!planComplete) {
       return;
     }
 
@@ -135,97 +168,118 @@ export default function Step3Review() {
       return;
     }
 
+    inFlightRef.current = true;
     setSubmitState('sending');
     setSubmitError('');
 
-    // Persist the contact to context so a refresh/back-button doesn't lose
-    // it. Step 4 also snapshots the email at mount for the confirmation.
-    update({
-      contact: {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        company: company.trim(),
-      },
-    });
-
-    // If there's a file, read it to base64 first. Fail gracefully — a bad
-    // read shouldn't nuke the whole submission, but the user needs to know
-    // the attachment isn't going through so they can follow up manually.
-    let artwork = null;
-    if (fileBlob) {
-      try {
-        const base64 = await readFileAsBase64(fileBlob);
-        artwork = {
-          filename: fileBlob.name,
-          mimeType: fileBlob.type || 'application/octet-stream',
-          size: fileBlob.size,
-          base64,
-        };
-      } catch (readErr) {
-        setSubmitState('error');
-        setSubmitError(
-          "We couldn't read your artwork file. Try re-picking it, or " +
-          "submit without the file and email it to orders@mailpro.org."
-        );
-        return;
-      }
-    }
-
-    const payload = {
-      submittedAt: new Date().toISOString(),
-      campaign: {
-        mode: searchMode || (radiusSearch ? 'radius' : 'zip'),
-        zips: Array.isArray(zips) ? zips : [],
-        radius: radiusSearch || null,
-        totalHH: typeof totalHH === 'number' ? totalHH : 0,
-      },
-      piece: {
-        size: size || null,
-        customSize:
-          size === 'custom'
-            ? formatCustomSize(customSize)
-            : null,
-      },
-      design: {
-        // Keep filename for back-compat with anyone reading the payload shape.
-        path: artworkPath || null,
-        filename: uploadedFile?.name || null,
-      },
-      artwork,
-      contact: {
-        name: trimmedName,
-        email: email.trim(),
-        phone: phone.trim(),
-        company: company.trim(),
-      },
-      targetMailDate: targetMailDate || null,
-      notes: notes.trim() || null,
-    };
-
     try {
-      const resp = await fetch('/.netlify/functions/submit-quote-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      // Persist the contact to context so a refresh/back-button doesn't lose
+      // it. Step 4 also snapshots the email at mount for the confirmation.
+      update({
+        contact: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          company: company.trim(),
+        },
       });
 
-      if (!resp.ok) {
-        let body = {};
-        try { body = await resp.json(); } catch (e) { /* non-JSON */ }
-        throw new Error(body?.error || `Server returned ${resp.status}`);
+      // If there's a file, read it to base64 first. Fail gracefully — a bad
+      // read shouldn't nuke the whole submission, but the user needs to know
+      // the attachment isn't going through so they can follow up manually.
+      let artwork = null;
+      if (fileBlob) {
+        try {
+          const base64 = await readFileAsBase64(fileBlob);
+          artwork = {
+            filename: fileBlob.name,
+            mimeType: fileBlob.type || 'application/octet-stream',
+            size: fileBlob.size,
+            base64,
+          };
+        } catch (readErr) {
+          setSubmitState('error');
+          setSubmitError(
+            "We couldn't read your artwork file. Try re-picking it, or " +
+            "submit without the file and email it to orders@mailpro.org."
+          );
+          return;
+        }
       }
 
-      // Success — navigate to thank-you. Step 4 wipes planner state on mount.
-      navigate('/v2/mail');
-    } catch (err) {
-      // Keep the form data intact so the user can retry without re-typing.
-      setSubmitState('error');
-      setSubmitError(
-        err?.message ||
-        "We couldn't send your request. Try again, or call (863) 687-6945."
-      );
+      const payload = {
+        submittedAt: new Date().toISOString(),
+        campaign: {
+          mode: searchMode || (radiusSearch ? 'radius' : 'zip'),
+          zips: Array.isArray(zips) ? zips : [],
+          radius: radiusSearch || null,
+          totalHH: typeof totalHH === 'number' ? totalHH : 0,
+        },
+        piece: {
+          size: size || null,
+          customSize:
+            size === 'custom'
+              ? formatCustomSize(customSize)
+              : null,
+        },
+        design: {
+          // Keep filename for back-compat with anyone reading the payload shape.
+          path: artworkPath || null,
+          filename: uploadedFile?.name || null,
+        },
+        artwork,
+        contact: {
+          name: trimmedName,
+          email: email.trim(),
+          phone: phone.trim(),
+          company: company.trim(),
+        },
+        targetMailDate: targetMailDate || null,
+        notes: notes.trim() || null,
+      };
+
+      try {
+        const resp = await fetch('/.netlify/functions/submit-quote-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+          let body = {};
+          try { body = await resp.json(); } catch (parseErr) { /* non-JSON */ }
+          throw new Error(body?.error || `Server returned ${resp.status}`);
+        }
+
+        // P1-7: success funnel event. PII-free — totalHH and mode only.
+        track('eddm_v2_quote_submitted', {
+          step: 3,
+          total_hh: typeof totalHH === 'number' ? totalHH : 0,
+          mode: searchMode || (radiusSearch ? 'radius' : 'zip'),
+        });
+
+        // Success — navigate to thank-you. Step 4 wipes planner state on mount.
+        navigate('/v2/mail');
+      } catch (err) {
+        // Keep the form data intact so the user can retry without re-typing.
+        setSubmitState('error');
+        setSubmitError(
+          err?.message ||
+          "We couldn't send your request. Try again, or call (863) 687-6945."
+        );
+        // P1-7: failure funnel event. The raw error message can leak server
+        // internals — bucket it to the broad reason instead.
+        track('eddm_v2_quote_failed', {
+          step: 3,
+          reason: classifyError(err),
+        });
+      }
+    } finally {
+      // Release the guard regardless of outcome. On success we've already
+      // navigated; on error the user can retry. Without the finally, a
+      // throw before the catch would leave the guard set forever.
+      inFlightRef.current = false;
     }
   };
 
@@ -309,6 +363,8 @@ export default function Step3Review() {
                   onChange={(e) => setFirstName(e.target.value)}
                   onBlur={() => markTouched('name')}
                   data-invalid={showErr('name') ? 'true' : 'false'}
+                  aria-invalid={showErr('name') ? 'true' : 'false'}
+                  aria-describedby={showErr('name') ? 'step3-name-error' : undefined}
                   required
                 />
               </div>
@@ -325,12 +381,20 @@ export default function Step3Review() {
                   onChange={(e) => setLastName(e.target.value)}
                   onBlur={() => markTouched('name')}
                   data-invalid={showErr('name') ? 'true' : 'false'}
+                  aria-invalid={showErr('name') ? 'true' : 'false'}
+                  aria-describedby={showErr('name') ? 'step3-name-error' : undefined}
                   required
                 />
               </div>
               {showErr('name') && (
                 <div className="step3-field step3-field-full">
-                  <div className="step3-field-error">{fieldErrors.name}</div>
+                  <div
+                    id="step3-name-error"
+                    className="step3-field-error"
+                    role="alert"
+                  >
+                    {fieldErrors.name}
+                  </div>
                 </div>
               )}
 
@@ -347,10 +411,18 @@ export default function Step3Review() {
                   onChange={(e) => setEmail(e.target.value)}
                   onBlur={() => markTouched('email')}
                   data-invalid={showErr('email') ? 'true' : 'false'}
+                  aria-invalid={showErr('email') ? 'true' : 'false'}
+                  aria-describedby={showErr('email') ? 'step3-email-error' : undefined}
                   required
                 />
                 {showErr('email') && (
-                  <div className="step3-field-error">{fieldErrors.email}</div>
+                  <div
+                    id="step3-email-error"
+                    className="step3-field-error"
+                    role="alert"
+                  >
+                    {fieldErrors.email}
+                  </div>
                 )}
               </div>
 
@@ -367,10 +439,18 @@ export default function Step3Review() {
                   onChange={(e) => setPhone(e.target.value)}
                   onBlur={() => markTouched('phone')}
                   data-invalid={showErr('phone') ? 'true' : 'false'}
+                  aria-invalid={showErr('phone') ? 'true' : 'false'}
+                  aria-describedby={showErr('phone') ? 'step3-phone-error' : undefined}
                   required
                 />
                 {showErr('phone') && (
-                  <div className="step3-field-error">{fieldErrors.phone}</div>
+                  <div
+                    id="step3-phone-error"
+                    className="step3-field-error"
+                    role="alert"
+                  >
+                    {fieldErrors.phone}
+                  </div>
                 )}
               </div>
 
@@ -423,13 +503,13 @@ export default function Step3Review() {
               <div className="step3-cta-footnote">
                 {planComplete
                   ? 'A MailPro print strategist will email you pricing within one business day.'
-                  : 'Complete the Plan + Design steps first — your routes, size, and artwork path are required.'}
+                  : prereqHint}
               </div>
               <button
                 type="submit"
                 className="step3-cta"
                 disabled={!canSubmit}
-                title={!planComplete ? 'Complete Plan + Design steps first' : undefined}
+                title={prereqHint || undefined}
               >
                 {submitState === 'sending' ? 'Sending…' : 'Request quote →'}
               </button>
@@ -555,6 +635,27 @@ function truncate(s, max) {
  * chunk terminated by a single comma, so slicing past the first comma is
  * safe across browsers.
  */
+/**
+ * Bucket a thrown submit error into a coarse reason for analytics. We don't
+ * want to ship raw server messages or stack traces to gtag — both for PII
+ * reasons (some payloads echo back the user's email) and because the gtag
+ * `params.value` cardinality dashboard is useless when every error has a
+ * unique string. Three buckets is plenty: server, network, unknown.
+ */
+function classifyError(err) {
+  const msg = String(err?.message || '').toLowerCase();
+  if (!msg) return 'unknown';
+  if (msg.includes('server returned') || msg.startsWith('http')) return 'server';
+  if (
+    msg.includes('failed to fetch') ||
+    msg.includes('network') ||
+    msg.includes('load failed')
+  ) {
+    return 'network';
+  }
+  return 'unknown';
+}
+
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

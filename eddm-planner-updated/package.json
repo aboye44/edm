@@ -2,12 +2,11 @@
   "name": "canva-clone-cesdk-imgly",
   "version": "0.1.0",
   "private": true,
+  "homepage": "/eddm/",
   "dependencies": {
     "@cesdk/cesdk-js": "1.7.0-alpha.3",
     "@cesdk/engine": "1.7.0-alpha.3",
     "@react-google-maps/api": "^2.20.7",
-    "@sentry/browser": "^10.23.0",
-    "@sentry/react": "^10.23.0",
     "airtable": "^0.11.4",
     "chroma-js": "^2.4.2",
     "classnames": "^2.3.1",
@@ -23,9 +22,12 @@
     "unsplash-js": "^7.0.15",
     "web-vitals": "^2.1.4"
   },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "cross-env GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

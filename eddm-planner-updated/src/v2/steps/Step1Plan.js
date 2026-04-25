@@ -8,17 +8,12 @@ import useCountUp from '../primitives/useCountUp';
 import fmtN from '../primitives/fmtN';
 import useRoutes from '../hooks/useRoutes';
 import MapPane from '../components/MapPane';
-// ZipSearchBar superseded by SearchTabs in Phase 5.1 — import retained only
-// for reference; no longer rendered.
-// import ZipSearchBar from '../components/ZipSearchBar';
 import SearchTabs from '../components/SearchTabs';
 import StatePill from '../components/StatePill';
-// ModeSwitcher superseded by SearchTabs "By address + radius" tab in
-// Phase 5.1 — no longer rendered. Component file retained for future revival.
-// import ModeSwitcher from '../components/ModeSwitcher';
 import SavePlanPopover from '../components/SavePlanPopover';
 import Step1ErrorBanner from '../components/Step1ErrorBanner';
 import Step1LoadingOverlay from '../components/Step1LoadingOverlay';
+import { track } from '../lib/analytics';
 import './Step1Plan.css';
 
 // USPS EDDM retail flat rate 2026 — only shown when MPA_PRICING_VISIBLE is true.
@@ -44,8 +39,8 @@ export default function Step1Plan() {
   const [armStartOver, setArmStartOver] = useState(false);
   const startOverTimerRef = useRef(null);
   // MapPane uses `mode` to decide whether to render the Circle / DrawingManager.
-  // In Phase 5.1 the bottom-left ModeSwitcher is gone — `mode` flips to 'radius'
-  // programmatically when the "By address + radius" tab submits.
+  // `mode` flips to 'radius' programmatically when the "By address + radius"
+  // tab submits.
   const [mode, setMode] = useState('click');
   const [radius, setRadius] = useState(3);
   // Initial state: null center + zoom 4 → MapPane falls back to its
@@ -67,6 +62,12 @@ export default function Step1Plan() {
   // Direct ref.focus() from here fails on mobile because when SearchTabs
   // is collapsed into a summary chip, the input isn't in the DOM yet.
   const [zipFocusSignal, setZipFocusSignal] = useState(0);
+
+  // P1-7: fire the step-1 funnel event exactly once per session, on first
+  // successful search (ZIP or radius). useRef survives re-renders; we
+  // don't put this in a useState because we don't want a re-render when
+  // it flips.
+  const step1AnalyticsFiredRef = useRef(false);
 
   // Sync fetched routes - auto-fetch any persisted ZIPs on mount once.
   // P1-1: must be sequential. fetchZip shares a single abortRef, so
@@ -180,6 +181,15 @@ export default function Step1Plan() {
           ...newIds.filter((id) => !state.selected.includes(id)),
         ],
       });
+      // P1-7: first successful ZIP search this session → step-1 complete.
+      if (!step1AnalyticsFiredRef.current) {
+        step1AnalyticsFiredRef.current = true;
+        track('eddm_v2_step_completed', {
+          step: 1,
+          mode: 'zip',
+          zip_count: state.zips.length + 1,
+        });
+      }
     }
   };
 
@@ -225,6 +235,15 @@ export default function Step1Plan() {
           zip: zip || null,
         },
       });
+      // P1-7: first successful radius search this session → step-1 complete.
+      if (!step1AnalyticsFiredRef.current) {
+        step1AnalyticsFiredRef.current = true;
+        track('eddm_v2_step_completed', {
+          step: 1,
+          mode: 'radius',
+          zip_count: mergedZips.length,
+        });
+      }
     },
     [state.zips, fetchRadius, update]
   );
@@ -582,8 +601,6 @@ export default function Step1Plan() {
                 <StatePill count={totals.count} hh={totals.hh} />
               </div>
 
-              {/* Phase 5.1: ModeSwitcher no longer rendered. See SearchTabs. */}
-
               {showBlockingLoading && (
                 <Step1LoadingOverlay
                   variant="blocking"
@@ -617,10 +634,7 @@ export default function Step1Plan() {
             {savePopover ? '✕ Close' : '🔗 Save this plan'}
           </button>
           {savePopover && (
-            <SavePlanPopover
-              onClose={() => setSavePopover(false)}
-              plannerState={state}
-            />
+            <SavePlanPopover onClose={() => setSavePopover(false)} />
           )}
         </div>
 

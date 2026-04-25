@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { GoogleMap, LoadScript, Polygon, Polyline, Marker, Circle, Autocomplete, DrawingManager } from '@react-google-maps/api';
-import * as Sentry from '@sentry/react';
 // PDF imports removed - feature not in use
 import ROICalculator from '../ROICalculator/ROICalculator';
 import './EDDMMapper.css';
@@ -343,21 +342,6 @@ function EDDMMapper() {
     } catch (err) {
       console.error('Error fetching EDDM routes:', err);
 
-      // Track API errors in Sentry
-      Sentry.captureException(err, {
-        tags: {
-          errorType: 'api_failure',
-          component: 'eddm_routes',
-          zipCode: zip
-        },
-        contexts: {
-          request: {
-            zipCode: zip,
-            endpoint: EDDM_API_ENDPOINT
-          }
-        }
-      });
-
       // Only clear routes if this is a single ZIP search (clearOnError = true)
       // For multi-ZIP searches, keep existing routes from successful ZIPs
       if (clearOnError) {
@@ -377,14 +361,6 @@ function EDDMMapper() {
   const handleZipSearch = useCallback(async (e) => {
     e.preventDefault();
     if (zipCode && zipCode.length === 5) {
-      // Track ZIP search in Sentry breadcrumbs
-      Sentry.addBreadcrumb({
-        category: 'user-action',
-        message: 'ZIP search initiated',
-        level: 'info',
-        data: { zipCode }
-      });
-
       // FIXED: Clear radius search state when switching to ZIP search mode
       console.log('Switching to ZIP search mode - clearing radius search state');
       setCircleCenter(null);
@@ -417,14 +393,6 @@ function EDDMMapper() {
   const toggleRouteSelection = useCallback((routeId) => {
     setSelectedRoutes(prev => {
       const isRemoving = prev.includes(routeId);
-
-      // Track route selection in Sentry
-      Sentry.addBreadcrumb({
-        category: 'user-action',
-        message: isRemoving ? 'Route deselected' : 'Route selected',
-        level: 'info',
-        data: { routeId, totalSelected: isRemoving ? prev.length - 1 : prev.length + 1 }
-      });
 
       if (isRemoving) {
         return prev.filter(id => id !== routeId);
@@ -642,14 +610,6 @@ function EDDMMapper() {
       setGeocodeError('Please enter an address');
       return;
     }
-
-    // Track coverage area search in Sentry
-    Sentry.addBreadcrumb({
-      category: 'user-action',
-      message: 'Coverage area search initiated',
-      level: 'info',
-      data: { address: locationAddress, radius: selectedRadius }
-    });
 
     setGeocoding(true);
     setGeocodeError(null);

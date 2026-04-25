@@ -1,0 +1,135 @@
+/* ─────────────────────────────────────────────────────────────
+ * ErrorBoundary fallback — V2 Refined v2 palette
+ *
+ * Cream paper background, warm near-black ink, single red accent.
+ * Zero border-radius, Geist sans, no drop shadows beyond the V2
+ * CTA shadow set. Imports tokens-v2.css implicitly through V2Shell
+ * loading the same vars at :root — but ErrorBoundary can mount
+ * BEFORE V2Shell does (a render error in App.js itself), so we
+ * import tokens here too. The ":root" cascade collapses dupes.
+ * ───────────────────────────────────────────────────────────── */
+
+@import '../styles/tokens-v2.css';
+
+.error-boundary-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--mpa-v2-cream);
+  padding: 32px;
+  font-family: var(--mpa-v2-font-sans);
+  color: var(--mpa-v2-ink);
+  box-sizing: border-box;
+}
+
+.error-boundary-card {
+  max-width: 560px;
+  width: 100%;
+  background: var(--mpa-v2-paper);
+  border: 1px solid var(--mpa-v2-line);
+  border-radius: 0;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+.error-boundary-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--mpa-v2-red);
+  margin-bottom: 14px;
+}
+
+.error-boundary-title {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.6px;
+  line-height: 1.2;
+  margin: 0 0 14px;
+  color: var(--mpa-v2-ink);
+}
+
+.error-boundary-body {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--mpa-v2-ink-soft);
+  margin: 0 0 24px;
+}
+
+.error-boundary-link {
+  color: var(--mpa-v2-red);
+  text-decoration: none;
+  border-bottom: 1px solid var(--mpa-v2-red-soft);
+}
+
+.error-boundary-link:hover {
+  border-bottom-color: var(--mpa-v2-red);
+}
+
+.error-boundary-details {
+  margin: 0 0 24px;
+  background: var(--mpa-v2-cream-soft);
+  border: 1px solid var(--mpa-v2-line);
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.error-boundary-details-summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mpa-v2-red);
+  letter-spacing: 0.2px;
+}
+
+.error-boundary-details-pre {
+  font-family: var(--mpa-v2-font-mono);
+  font-size: 11.5px;
+  color: var(--mpa-v2-ink-soft);
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-boundary-cta {
+  display: block;
+  width: 100%;
+  background: var(--mpa-v2-red);
+  color: #fff;
+  border: none;
+  border-radius: 0;
+  padding: 16px 20px;
+  font-family: var(--mpa-v2-font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--mpa-v2-shadow-cta-red-desktop);
+  transition: background .12s;
+}
+
+.error-boundary-cta:hover {
+  background: #a92f34;
+}
+
+.error-boundary-footer {
+  font-size: 12.5px;
+  color: var(--mpa-v2-slate);
+  line-height: 1.55;
+  margin: 22px 0 0;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .error-boundary-card {
+    padding: 28px 22px;
+  }
+  .error-boundary-title {
+    font-size: 22px;
+    letter-spacing: -0.4px;
+  }
+}

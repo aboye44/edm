@@ -5,6 +5,7 @@ import { usePlanner } from '../PlannerContext';
 import Eyebrow from '../primitives/Eyebrow';
 import fmtN from '../primitives/fmtN';
 import SavePlanPopover from '../components/SavePlanPopover';
+import { track } from '../lib/analytics';
 import './Step2Design.css';
 
 // USPS EDDM retail flat rate 2026 — only referenced when MPA_PRICING_VISIBLE is true.
@@ -161,6 +162,13 @@ export default function Step2Design() {
 
   const handleContinue = () => {
     if (!canContinue) return;
+    // P1-7: step-2 complete event. PII-free — size + design path are both
+    // bounded enums.
+    track('eddm_v2_step_completed', {
+      step: 2,
+      size: size || 'unknown',
+      design_path: artworkPath || 'unknown',
+    });
     navigate('/v2/review');
   };
 
@@ -178,10 +186,7 @@ export default function Step2Design() {
             {savePopover ? '✕ Close' : '🔗 Save this plan'}
           </button>
           {savePopover && (
-            <SavePlanPopover
-              onClose={() => setSavePopover(false)}
-              plannerState={state}
-            />
+            <SavePlanPopover onClose={() => setSavePopover(false)} />
           )}
         </div>
 

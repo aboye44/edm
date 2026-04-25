@@ -212,11 +212,18 @@
   background: #a92f34;
 }
 
+/*
+ * P1-5: disabled CTA contrast bumped to WCAG AA pass.
+ *   Old: bg=line(#D9D2C4) + fg=slate(#8A8170) + opacity 0.7 → ~2.4:1, fails AA.
+ *   New: bg=line(#D9D2C4) + fg=ink-soft(#4A4336), opacity 1   → ~6:1, passes AA.
+ * Background unchanged so the disabled state still reads as inactive
+ * relative to the active red CTA.
+ */
 .step3-cta[disabled] {
   background: var(--mpa-v2-line);
-  color: var(--mpa-v2-slate);
+  color: var(--mpa-v2-ink-soft);
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 1;
   box-shadow: none;
 }
 
