@@ -14,13 +14,13 @@ function App() {
   return (
     <ErrorBoundary>
       {/*
-       * basename="/eddm" matches the production deploy path so client-side
-       * routing resolves correctly. With package.json "homepage": "/eddm/",
-       * webpack emits asset URLs as /eddm/static/... — basename mirrors that
-       * on the router side so <Link to="/v2"> renders /eddm/v2 and
-       * useNavigate('/v2/design') goes to /eddm/v2/design.
+       * No basename — routes work as written across both the Vercel preview
+       * (vercel.app/v2/...) and the production deploy (mailpro.org/eddm/v2/...).
+       * Asset paths use package.json "homepage": "." so the browser resolves
+       * /static/... relative to the current document URL — works under any
+       * subpath without needing an environment-specific build.
        */}
-      <BrowserRouter basename="/eddm">
+      <BrowserRouter>
         <div className="App">
           <Routes>
             {/* Existing production tool — DO NOT MODIFY */}
