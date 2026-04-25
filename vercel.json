@@ -1,7 +1,7 @@
 {
   "buildCommand": "cd eddm-planner-updated && npm install && npm run build",
   "outputDirectory": "eddm-planner-updated/build",
-  "installCommand": "cd eddm-planner-updated && npm install",
+  "installCommand": "cd eddm-planner-updated && npm install && cd ../api && npm install",
   "framework": "create-react-app",
   "rewrites": [
     {
@@ -11,6 +11,10 @@
     {
       "source": "/.netlify/functions/submit-quote-request",
       "destination": "/api/submit-quote-request"
+    },
+    {
+      "source": "/.netlify/functions/upload-url",
+      "destination": "/api/upload-url"
     }
   ],
   "redirects": [

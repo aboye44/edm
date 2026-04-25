@@ -1,0 +1,17 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://*.mailpro.org",
+          "https://*.vercel.app",
+          "http://localhost:3000"
+        ],
+        "methods": ["PUT", "GET"],
+        "headers": ["*"]
+      },
+      "exposeHeaders": ["ETag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

@@ -4,6 +4,8 @@
   "private": true,
   "homepage": "/eddm/",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.658.0",
+    "@aws-sdk/s3-request-presigner": "^3.658.0",
     "@cesdk/cesdk-js": "1.7.0-alpha.3",
     "@cesdk/engine": "1.7.0-alpha.3",
     "@react-google-maps/api": "^2.20.7",

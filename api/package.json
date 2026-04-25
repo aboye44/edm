@@ -1,0 +1,11 @@
+{
+  "name": "edm-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vercel function deps for EDDM Planner v2 — kept separate from the React subproject so the serverless runtime can resolve them.",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.658.0",
+    "@aws-sdk/s3-request-presigner": "^3.658.0"
+  }
+}

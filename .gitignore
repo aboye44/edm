@@ -1,2 +1,18 @@
 # Local Netlify folder
 .netlify
+
+# Vercel
+.vercel/
+
+# Wrangler local cache
+.wrangler/
+
+# Local env
+.env
+.env.local
+
+# Node deps (incl. api/node_modules from the AWS SDK install)
+node_modules/
+
+# Thoughts/plans dir is local-only
+thoughts/

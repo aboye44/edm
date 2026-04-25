@@ -11,12 +11,19 @@ import './Step2Design.css';
 // USPS EDDM retail flat rate 2026 — only referenced when MPA_PRICING_VISIBLE is true.
 const POSTAGE_PER_PIECE = 0.359;
 
-// P1-4: reject oversize uploads at pick time, not at Step 3 submit.
-// Must match Step3Review.js MAX_ARTWORK_BYTES exactly — Step 3 keeps its
-// own check as a safety net in case a bad file slips past (e.g. a user
-// who skipped Step 2 via direct URL).
-const MAX_ARTWORK_BYTES = 4 * 1024 * 1024;
-const MAX_ARTWORK_LABEL = '4 MB';
+// R2 direct-upload cap. The Vercel function `/api/upload-url` enforces the
+// same number — keep them in sync. 50 MB is generous enough for any
+// realistic print-ready postcard PDF and well under the 100 MB Cloudflare
+// Pages body limit we'd hit otherwise.
+const MAX_ARTWORK_BYTES = 50 * 1024 * 1024;
+const MAX_ARTWORK_LABEL = '50 MB';
+
+// Allowed mime types — must match the server allow-list in api/upload-url.js.
+const ALLOWED_MIME = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+]);
 
 const SIZES = [
   { id: '6.25x9',  name: '6.25 × 9',  label: 'Standard', tag: 'Postcard, EDDM-eligible', price: 0.098 },
@@ -38,35 +45,42 @@ function truncate(s, max) {
 
 export default function Step2Design() {
   const navigate = useNavigate();
-  const { state, update, setUploadedFileBlob } = usePlanner();
+  const { state, update } = usePlanner();
   const uploadCardRef = useRef(null);
   const fileInputRef = useRef(null);
   const canvaFileInputRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCanvaDragOver, setIsCanvaDragOver] = useState(false);
   const [savePopover, setSavePopover] = useState(false);
-  // P1-4: inline upload error (primarily oversize > 4 MB). Cleared
-  // whenever a valid file is picked.
+  // Inline upload error (oversize, wrong type, network failure). Cleared
+  // whenever a valid file starts uploading.
   const [uploadError, setUploadError] = useState(null);
+  // Upload progress: { phase: 'signing' | 'uploading' | 'idle', percent: 0..100 }
+  const [uploadProgress, setUploadProgress] = useState({ phase: 'idle', percent: 0 });
 
   const { size, customSize, artworkPath, uploadedFile, totalHH } = state;
   const sel = size ? SIZES.find((s) => s.id === size) : null;
   const isCustom = size === 'custom';
   const customReady = Boolean(isCustom && customSize.w && customSize.h);
 
+  const isUploading = uploadProgress.phase !== 'idle';
+
   // Continue gate:
   //  - custom: require w + h
-  //  - standard: require artwork pick + (if upload) a file
+  //  - standard: require artwork pick + (if upload) a fully-uploaded file
+  //    (i.e. uploadedFile.readUrl present, signaling the R2 PUT completed)
   //  - quote-only and canva pass without a file; upload still requires one
+  //  - no continue while a file is mid-upload
+  const uploadComplete = Boolean(uploadedFile && uploadedFile.readUrl);
   const canContinue = Boolean(
+    !isUploading &&
     size && (
       (isCustom && customReady) ||
-      ((!isCustom) && artworkPath && (artworkPath !== 'upload' || uploadedFile))
+      ((!isCustom) && artworkPath && (artworkPath !== 'upload' || uploadComplete))
     )
   );
 
   const pickSize = (id) => {
-    // Switching away from custom clears custom ready-ness implicitly via gate.
     update({ size: id });
   };
 
@@ -76,64 +90,153 @@ export default function Step2Design() {
 
   const setArtwork = (path) => update({ artworkPath: path });
 
-  // P1-4: reject oversize artwork at pick time. Returns true if the file
-  // was rejected so callers can bail before mutating state.
-  const rejectIfOversize = (file) => {
-    if (!file) return false;
+  // Validate file against type + size constraints. Returns an error string
+  // (to display in the inline banner) or null if the file passes.
+  const validateFile = (file) => {
+    if (!file) return 'No file selected';
+    // Mime check — fall back to extension if mime is empty (some browsers).
+    const ext = (file.name || '').toLowerCase().match(/\.(pdf|jpe?g|png)$/);
+    if (!ALLOWED_MIME.has(file.type) && !ext) {
+      return `File "${truncate(file.name, 40)}" must be a PDF, JPG, or PNG.`;
+    }
     if (file.size > MAX_ARTWORK_BYTES) {
-      setUploadError(
+      return (
         `File "${truncate(file.name, 40)}" is ${formatSize(file.size)}, ` +
-        `larger than the ${MAX_ARTWORK_LABEL} cap. Please compress it, or ` +
+        `larger than the ${MAX_ARTWORK_LABEL} cap. Compress it or email ` +
+        `artwork to orders@mailpro.org after submitting this form.`
+      );
+    }
+    return null;
+  };
+
+  // Resolve the mime type the server will accept. Some browsers leave
+  // file.type empty for PDFs picked from certain file managers; map by
+  // extension as a fallback.
+  const resolveMimeType = (file) => {
+    if (ALLOWED_MIME.has(file.type)) return file.type;
+    const ext = (file.name || '').toLowerCase().match(/\.(pdf|jpe?g|png)$/);
+    if (!ext) return null;
+    const e = ext[1];
+    if (e === 'pdf') return 'application/pdf';
+    if (e === 'jpg' || e === 'jpeg') return 'image/jpeg';
+    if (e === 'png') return 'image/png';
+    return null;
+  };
+
+  // Upload pipeline: validate -> request presigned URL -> PUT to R2 ->
+  // store metadata in context. On any failure, surface an inline banner
+  // and clear partial state so the user can retry cleanly.
+  const uploadToR2 = async (file, intendedArtworkPath) => {
+    const err = validateFile(file);
+    if (err) {
+      setUploadError(err);
+      return;
+    }
+    setUploadError(null);
+
+    const mimeType = resolveMimeType(file);
+    if (!mimeType) {
+      setUploadError(`Could not determine the file type for "${truncate(file.name, 40)}". Try re-saving as PDF, JPG, or PNG.`);
+      return;
+    }
+
+    // Optimistic state — set artworkPath now so the card visually selects
+    // even before the upload completes. We'll clear uploadedFile if the
+    // upload errors out.
+    setArtwork(intendedArtworkPath);
+
+    try {
+      setUploadProgress({ phase: 'signing', percent: 0 });
+      const signResp = await fetch('/.netlify/functions/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          mimeType,
+          sizeBytes: file.size,
+        }),
+      });
+      if (!signResp.ok) {
+        let msg = `Server returned ${signResp.status}`;
+        try {
+          const body = await signResp.json();
+          if (body && body.error) msg = body.error;
+        } catch (e) { /* non-JSON */ }
+        throw new Error(msg);
+      }
+      const { putUrl, readUrl, key } = await signResp.json();
+      if (!putUrl || !readUrl) {
+        throw new Error('Upload URL response was malformed');
+      }
+
+      setUploadProgress({ phase: 'uploading', percent: 0 });
+
+      // XHR for upload-progress events (fetch doesn't expose progress).
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', putUrl);
+        xhr.setRequestHeader('Content-Type', mimeType);
+        xhr.upload.onprogress = (evt) => {
+          if (evt.lengthComputable) {
+            const percent = Math.round((evt.loaded / evt.total) * 100);
+            setUploadProgress({ phase: 'uploading', percent });
+          }
+        };
+        xhr.onload = () => {
+          // R2 returns 200 (or sometimes 201) on a successful PUT. Anything
+          // 4xx/5xx is a hard failure — no retry on this layer; the user
+          // re-picks the file.
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed (${xhr.status})`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.onabort = () => reject(new Error('Upload aborted'));
+        xhr.send(file);
+      });
+
+      const sizeLabel = formatSize(file.size);
+      update({
+        uploadedFile: {
+          filename: file.name,
+          mimeType,
+          sizeBytes: file.size,
+          sizeLabel,
+          readUrl,
+          key,
+        },
+      });
+      setUploadProgress({ phase: 'idle', percent: 0 });
+    } catch (err) {
+      // Clear upload state on failure so the dropzone shows "drop here"
+      // again rather than a phantom uploaded-file row. The artworkPath
+      // stays selected so the user knows where to retry.
+      update({ uploadedFile: null });
+      setUploadProgress({ phase: 'idle', percent: 0 });
+      setUploadError(
+        `Upload failed: ${err?.message || 'unknown error'}. Try again, or ` +
         `email artwork to orders@mailpro.org after submitting this form.`
       );
-      return true;
     }
-    return false;
   };
 
   // Upload-card handler: stamps artworkPath to 'upload'
   const handleUploadFile = (file) => {
-    if (!file) return;
-    if (rejectIfOversize(file)) return;
-    setUploadError(null);
-    if ((!/\.(pdf|jpe?g|png)$/i.test(file.name)) &&
-        (file.type !== 'application/pdf') &&
-        (file.type !== 'image/jpeg') &&
-        (file.type !== 'image/png')) {
-      // Best-effort: accept anyway if extension is missing, but prefer
-      // PDFs/JPGs/PNGs. Upstream PDF check happens post-submission.
-    }
-    const sizeStr = formatSize(file.size);
-    // Stash the raw File in memory so Step 3 can base64-encode + attach it.
-    // localStorage can't hold a File so only metadata persists.
-    setUploadedFileBlob(file);
-    update({
-      uploadedFile: {
-        name: file.name,
-        size: sizeStr,
-        bytes: file.size,
-        mimeType: file.type || 'application/octet-stream',
-      },
-    });
-    setArtwork('upload');
+    if (!file || isUploading) return;
+    uploadToR2(file, 'upload');
   };
 
   // Canva-card inline upload: preserves artworkPath === 'canva'
   const handleCanvaFile = (file) => {
-    if (!file) return;
-    if (rejectIfOversize(file)) return;
+    if (!file || isUploading) return;
+    uploadToR2(file, 'canva');
+  };
+
+  const clearUpload = () => {
+    update({ uploadedFile: null });
     setUploadError(null);
-    const sizeStr = formatSize(file.size);
-    setUploadedFileBlob(file);
-    update({
-      uploadedFile: {
-        name: file.name,
-        size: sizeStr,
-        bytes: file.size,
-        mimeType: file.type || 'application/octet-stream',
-      },
-    });
-    setArtwork('canva');
   };
 
   const handleUploadDrop = (e) => {
@@ -162,8 +265,6 @@ export default function Step2Design() {
 
   const handleContinue = () => {
     if (!canContinue) return;
-    // P1-7: step-2 complete event. PII-free — size + design path are both
-    // bounded enums.
     track('eddm_v2_step_completed', {
       step: 2,
       size: size || 'unknown',
@@ -249,13 +350,14 @@ export default function Step2Design() {
                 selectedSize={size}
                 dimmed={artworkPath === 'design-for-me' || artworkPath === 'quote-only'}
                 uploadedFile={artworkPath === 'canva' ? uploadedFile : null}
+                uploadProgress={artworkPath === 'canva' ? uploadProgress : { phase: 'idle', percent: 0 }}
                 isDragOver={isCanvaDragOver}
                 setIsDragOver={setIsCanvaDragOver}
                 fileInputRef={canvaFileInputRef}
                 onClick={() => setArtwork('canva')}
                 onPickFile={handleCanvaFile}
                 onOpenFileDialog={openCanvaDialog}
-                onClear={() => { setUploadedFileBlob(null); update({ uploadedFile: null }); }}
+                onClear={clearUpload}
                 onDrop={handleCanvaDrop}
               />
               <UploadArtworkCard
@@ -263,13 +365,14 @@ export default function Step2Design() {
                 fileInputRef={fileInputRef}
                 active={artworkPath === 'upload'}
                 uploadedFile={artworkPath === 'upload' ? uploadedFile : null}
+                uploadProgress={artworkPath === 'upload' ? uploadProgress : { phase: 'idle', percent: 0 }}
                 dimmed={artworkPath === 'design-for-me' || artworkPath === 'quote-only'}
                 isDragOver={isDragOver}
                 setIsDragOver={setIsDragOver}
                 onClick={() => setArtwork('upload')}
                 onPickFile={handleUploadFile}
                 onOpenFileDialog={openUploadDialog}
-                onClear={() => { setUploadedFileBlob(null); update({ uploadedFile: null }); }}
+                onClear={clearUpload}
                 onDrop={handleUploadDrop}
               />
               <DIYArtworkCard
@@ -417,6 +520,7 @@ function CanvaArtworkCard({
   selectedSize,
   dimmed,
   uploadedFile,
+  uploadProgress,
   isDragOver,
   setIsDragOver,
   fileInputRef,
@@ -430,9 +534,6 @@ function CanvaArtworkCard({
   const disabled = !tpl;
   const sizeDisplay = selectedSize ? selectedSize.replace('x', ' × ') : '';
 
-  // Click/keyboard always switches selection — dimming is an informational
-  // hint ("you picked something else, this isn't needed") not a lock.
-  // Users can always change their mind by clicking a dimmed card.
   const handleCardClick = () => {
     if (disabled) return;
     onClick();
@@ -446,9 +547,6 @@ function CanvaArtworkCard({
       data-dimmed={(!disabled && dimmed) ? 'true' : 'false'}
       onClick={handleCardClick}
       onDragOver={(e) => {
-        // File drop still requires the card to be the active selection —
-        // a drop onto a dimmed card would silently route to the wrong
-        // intent. Click to activate first, then drop.
         if (disabled || !active) return;
         e.preventDefault();
         setIsDragOver(true);
@@ -510,6 +608,7 @@ function CanvaArtworkCard({
                 </div>
                 <CanvaUploadZone
                   uploadedFile={uploadedFile}
+                  uploadProgress={uploadProgress}
                   isDragOver={isDragOver}
                   onOpen={onOpenFileDialog}
                   onClear={onClear}
@@ -523,17 +622,20 @@ function CanvaArtworkCard({
   );
 }
 
-function CanvaUploadZone({ uploadedFile, isDragOver, onOpen, onClear }) {
+function CanvaUploadZone({ uploadedFile, uploadProgress, isDragOver, onOpen, onClear }) {
+  if (uploadProgress && uploadProgress.phase !== 'idle') {
+    return <UploadingIndicator uploadProgress={uploadProgress} />;
+  }
   if (uploadedFile) {
     return (
       <div className="step2-upload-accepted" onClick={(e) => e.stopPropagation()}>
         <div className="step2-upload-row">
           <div className="step2-upload-check">✓</div>
           <div className="step2-upload-meta">
-            <div className="step2-upload-name" title={uploadedFile.name}>
-              {uploadedFile.name}
+            <div className="step2-upload-name" title={uploadedFile.filename}>
+              {uploadedFile.filename}
             </div>
-            <div className="step2-upload-size">{uploadedFile.size}</div>
+            <div className="step2-upload-size">{uploadedFile.sizeLabel}</div>
           </div>
         </div>
         <button
@@ -572,6 +674,7 @@ function UploadArtworkCard({
   fileInputRef,
   active,
   uploadedFile,
+  uploadProgress,
   dimmed,
   isDragOver,
   setIsDragOver,
@@ -589,7 +692,6 @@ function UploadArtworkCard({
       data-dimmed={dimmed ? 'true' : 'false'}
       onClick={onClick}
       onDragOver={(e) => {
-        // File drop still requires the card to be active.
         if (!active) return;
         e.preventDefault();
         setIsDragOver(true);
@@ -626,6 +728,7 @@ function UploadArtworkCard({
       <UploadZone
         active={active || isDragOver}
         uploadedFile={uploadedFile}
+        uploadProgress={uploadProgress}
         onOpen={onOpenFileDialog}
         onClear={onClear}
       />
@@ -633,17 +736,20 @@ function UploadArtworkCard({
   );
 }
 
-function UploadZone({ active, uploadedFile, onOpen, onClear }) {
+function UploadZone({ active, uploadedFile, uploadProgress, onOpen, onClear }) {
+  if (uploadProgress && uploadProgress.phase !== 'idle') {
+    return <UploadingIndicator uploadProgress={uploadProgress} />;
+  }
   if (uploadedFile) {
     return (
       <div className="step2-upload-accepted" onClick={(e) => e.stopPropagation()}>
         <div className="step2-upload-row">
           <div className="step2-upload-check">✓</div>
           <div className="step2-upload-meta">
-            <div className="step2-upload-name" title={uploadedFile.name}>
-              {uploadedFile.name}
+            <div className="step2-upload-name" title={uploadedFile.filename}>
+              {uploadedFile.filename}
             </div>
-            <div className="step2-upload-size">{uploadedFile.size}</div>
+            <div className="step2-upload-size">{uploadedFile.sizeLabel}</div>
           </div>
         </div>
         <button
@@ -677,6 +783,55 @@ function UploadZone({ active, uploadedFile, onOpen, onClear }) {
     >
       <div className="step2-upload-arrow">⤒</div>
       <div className="step2-upload-label">Drop PDF here or click to browse</div>
+    </div>
+  );
+}
+
+/* ─── Uploading indicator ───────────────────────────── */
+function UploadingIndicator({ uploadProgress }) {
+  const { phase, percent } = uploadProgress || {};
+  const label = phase === 'signing'
+    ? 'Preparing upload…'
+    : `Uploading… ${percent || 0}%`;
+  const pct = phase === 'signing' ? 5 : Math.max(percent || 0, 5);
+
+  return (
+    <div
+      className="step2-upload-zone"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        cursor: 'default',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 8,
+        padding: '14px 16px',
+      }}
+    >
+      <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--mpa-v2-ink)' }}>
+        {label}
+      </div>
+      <div
+        style={{
+          height: 4,
+          background: 'var(--mpa-v2-line)',
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: 'var(--mpa-v2-red)',
+            transition: 'width 0.2s ease-out',
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -777,10 +932,10 @@ function QuoteSummary({ qty, sel, artworkPath, uploadedFile, canContinue, onCont
   let artworkLabel = 'Not chosen yet';
   if (artworkPath === 'canva') {
     artworkLabel = uploadedFile
-      ? truncate(uploadedFile.name, 24)
+      ? truncate(uploadedFile.filename, 24)
       : 'Canva template (upload after customizing)';
   } else if (artworkPath === 'upload') {
-    artworkLabel = uploadedFile ? truncate(uploadedFile.name, 24) : 'Uploading PDF';
+    artworkLabel = uploadedFile ? truncate(uploadedFile.filename, 24) : 'Uploading PDF';
   } else if (artworkPath === 'design-for-me') {
     artworkLabel = 'MPA design services';
   } else if (artworkPath === 'quote-only') {
@@ -876,10 +1031,6 @@ function CustomQuote({ customSize, customReady, canContinue, onContinue }) {
 }
 
 function QuoteBreakdown({ qty, sel, artworkPath, canContinue, onContinue }) {
-  // Note: pricing-visible path is shown only when MPA_PRICING_VISIBLE flips true.
-  // All operands here are simple arithmetic; mixed-operator expressions are
-  // parenthesized below for CRA's no-mixed-operators. Placeholder rates until
-  // the real card lands.
   const unitCost = (sel.price != null) ? sel.price : 0;
   const printing = unitCost * qty;
   const bundling = Math.max(12, (qty * 0.015));

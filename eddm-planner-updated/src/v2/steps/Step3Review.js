@@ -16,20 +16,19 @@ import './Step3Review.css';
  * On submit: POST to /.netlify/functions/submit-quote-request. On 200,
  * navigate to /v2/mail (the thank-you page). On failure, show an inline
  * banner without losing the user's data.
+ *
+ * Artwork upload: handled in Step 2 (browser → R2 direct via presigned PUT).
+ * By the time we get here, `state.uploadedFile` is either null or contains
+ * { filename, mimeType, sizeBytes, sizeLabel, readUrl, key } — all
+ * serializable, all already in R2. We just pass the readUrl along in the
+ * payload; the email function turns it into a download link.
  */
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Attachments are base64-encoded before POST; SendGrid limits a full API
-// payload (message + attachments) to 30 MB and base64 inflates raw bytes
-// by ~33%, but more importantly Netlify Functions have their own body-size
-// ceilings. A 4 MB raw cap keeps us well under both while still allowing
-// most print-ready postcard PDFs through without trouble.
-const MAX_ARTWORK_BYTES = 4 * 1024 * 1024;
-
 export default function Step3Review() {
   const navigate = useNavigate();
-  const { state, update, getUploadedFileBlob } = usePlanner();
+  const { state, update } = usePlanner();
 
   const {
     zips,
@@ -151,23 +150,6 @@ export default function Step3Review() {
       return;
     }
 
-    // Read the raw File (stashed in-memory by Step 2). If present, enforce
-    // the 4 MB cap BEFORE we do any network work — the user doesn't need to
-    // wait on a slow base64 of a file we're going to reject anyway.
-    const fileBlob = typeof getUploadedFileBlob === 'function'
-      ? getUploadedFileBlob()
-      : null;
-
-    if (fileBlob && fileBlob.size > MAX_ARTWORK_BYTES) {
-      setSubmitState('error');
-      setSubmitError(
-        "Your artwork file is larger than 4 MB. Please email it to " +
-        "orders@mailpro.org after submitting this form, or compress it " +
-        "and try again."
-      );
-      return;
-    }
-
     inFlightRef.current = true;
     setSubmitState('sending');
     setSubmitError('');
@@ -185,28 +167,16 @@ export default function Step3Review() {
         },
       });
 
-      // If there's a file, read it to base64 first. Fail gracefully — a bad
-      // read shouldn't nuke the whole submission, but the user needs to know
-      // the attachment isn't going through so they can follow up manually.
-      let artwork = null;
-      if (fileBlob) {
-        try {
-          const base64 = await readFileAsBase64(fileBlob);
-          artwork = {
-            filename: fileBlob.name,
-            mimeType: fileBlob.type || 'application/octet-stream',
-            size: fileBlob.size,
-            base64,
-          };
-        } catch (readErr) {
-          setSubmitState('error');
-          setSubmitError(
-            "We couldn't read your artwork file. Try re-picking it, or " +
-            "submit without the file and email it to orders@mailpro.org."
-          );
-          return;
-        }
-      }
+      // Artwork is already uploaded to R2 (Step 2 handles this on file pick).
+      // We pass the readUrl + metadata along; the email function uses it to
+      // build a download link in the order email instead of attaching bytes.
+      const artwork = uploadedFile && uploadedFile.readUrl ? {
+        filename: uploadedFile.filename,
+        mimeType: uploadedFile.mimeType,
+        sizeBytes: uploadedFile.sizeBytes,
+        readUrl: uploadedFile.readUrl,
+        key: uploadedFile.key,
+      } : null;
 
       const payload = {
         submittedAt: new Date().toISOString(),
@@ -226,7 +196,7 @@ export default function Step3Review() {
         design: {
           // Keep filename for back-compat with anyone reading the payload shape.
           path: artworkPath || null,
-          filename: uploadedFile?.name || null,
+          filename: uploadedFile?.filename || null,
         },
         artwork,
         contact: {
@@ -582,18 +552,18 @@ function describePiece({ size, customSize }) {
 
 function describeDesign({ artworkPath, uploadedFile }) {
   if (!artworkPath) return { value: 'No design path chosen yet', muted: true };
-  const file = uploadedFile?.name ? ` · ${truncate(uploadedFile.name, 40)}` : '';
+  const file = uploadedFile?.filename ? ` · ${truncate(uploadedFile.filename, 40)}` : '';
   switch (artworkPath) {
     case 'canva':
       return {
-        value: uploadedFile?.name
+        value: uploadedFile?.filename
           ? `Canva template${file}`
           : 'Canva template (upload pending)',
         muted: false,
       };
     case 'upload':
       return {
-        value: uploadedFile?.name
+        value: uploadedFile?.filename
           ? `Uploaded artwork${file}`
           : 'Uploaded artwork (file pending)',
         muted: false,
@@ -627,15 +597,6 @@ function truncate(s, max) {
 }
 
 /**
- * Read a File into a base64 string (no `data:*;base64,` prefix).
- *
- * Uses FileReader.readAsDataURL + strips the prefix because that path is
- * widely supported and avoids the binary-string-vs-ArrayBuffer dance of
- * readAsArrayBuffer + btoa. The prefix is a predictable `data:<mime>;base64,`
- * chunk terminated by a single comma, so slicing past the first comma is
- * safe across browsers.
- */
-/**
  * Bucket a thrown submit error into a coarse reason for analytics. We don't
  * want to ship raw server messages or stack traces to gtag — both for PII
  * reasons (some payloads echo back the user's email) and because the gtag
@@ -654,28 +615,4 @@ function classifyError(err) {
     return 'network';
   }
   return 'unknown';
-}
-
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const result = typeof reader.result === 'string' ? reader.result : '';
-        const commaIdx = result.indexOf(',');
-        if (commaIdx === -1) {
-          // No comma means the reader didn't produce a data URL — bail
-          // rather than attach garbage.
-          reject(new Error('Unexpected FileReader result'));
-          return;
-        }
-        resolve(result.slice(commaIdx + 1));
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = () => reject(reader.error || new Error('FileReader failed'));
-    reader.onabort = () => reject(new Error('FileReader aborted'));
-    reader.readAsDataURL(file);
-  });
 }

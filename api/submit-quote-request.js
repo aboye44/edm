@@ -2,15 +2,23 @@
 //
 // Receives EDDM v2 Step 3 quote submissions and sends TWO emails via
 // SendGrid, in parallel:
-//   1. Internal notification → orders@mailpro.org (with artwork attached,
-//      reply-to = customer). This is the critical path — if it fails the
-//      endpoint returns 502 and the user sees an error.
+//   1. Internal notification → orders@mailpro.org (with a download link
+//      to the artwork in R2, reply-to = customer). This is the critical
+//      path — if it fails the endpoint returns 502 and the user sees an
+//      error.
 //   2. Customer confirmation → the submitter. Fire-and-forget; a failure
 //      here is logged but does NOT fail the request (internal team still
 //      got the lead).
 //
 // Native fetch only (Node 18+) — no npm dep on @sendgrid/mail, matches
 // the eddm-routes.js pattern next door.
+//
+// ─── Artwork handling ───
+//   Artwork is uploaded directly from the customer's browser to Cloudflare
+//   R2 in Step 2 via a presigned PUT URL minted by /api/upload-url. By the
+//   time we get here, the bytes are in R2 and the payload only contains
+//   metadata + a 7-day presigned readUrl. The internal email includes a
+//   "Download artwork" link rather than an attachment.
 //
 // ─── Required environment variables ───
 //   SENDGRID_API_KEY     Full-access or restricted-access key with "Mail
@@ -30,12 +38,6 @@
 // so staff can hit "Reply" in Outlook and land straight in the customer's
 // inbox. The customer confirmation email is sent FROM orders@mailpro.org
 // so their reply lands in the orders inbox too.
-//
-// ─── What this function does NOT do ───
-//   - It does not validate the attachment byte count — the client-side
-//     enforces the 4 MB cap (see src/v2/steps/Step3Review.js). A larger
-//     payload will be rejected by Vercel (4.5 MB body limit) before this
-//     handler runs.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -154,16 +156,8 @@ export default async function handler(req, res) {
     ],
   };
 
-  if (artwork && typeof artwork.base64 === 'string' && artwork.base64.length > 0) {
-    internalSgPayload.attachments = [
-      {
-        content: artwork.base64,
-        filename: artwork.filename || 'artwork.pdf',
-        type: artwork.mimeType || 'application/octet-stream',
-        disposition: 'attachment',
-      },
-    ];
-  }
+  // No attachments — artwork is in R2; the email body has a download link
+  // (built in buildTextBody / buildHtmlBody from artwork.readUrl).
 
   // ─── Customer-confirmation SendGrid payload (goes to submitter) ───
   // First name only for the greeting — falls back to full name if the
@@ -359,11 +353,19 @@ function buildTextBody(d) {
   push('DESIGN');
   push(`  Path:    ${describeDesign(d.design)}`);
   if (d.artwork) {
-    const sizeLabel = formatBytes(d.artwork.size);
+    // R2 readUrl is a 7-day presigned URL — the orders team should download
+    // promptly. After 7 days the link expires and the file becomes
+    // unreachable without a re-signed URL.
+    const sizeLabel = formatBytes(d.artwork.sizeBytes);
     push(`  File:    ${d.artwork.filename || '(unnamed)'}${sizeLabel ? ` — ${sizeLabel}` : ''}`);
-    push('  (Attached to this email.)');
+    if (d.artwork.readUrl) {
+      push(`  Download: ${d.artwork.readUrl}`);
+      push('  (Link expires in 7 days — download promptly.)');
+    } else {
+      push('  (No download link — file metadata only.)');
+    }
   } else {
-    push('  File:    None attached');
+    push('  File:    None uploaded');
   }
   push('');
 
@@ -424,12 +426,27 @@ function buildHtmlBody(d) {
     d.piece && d.piece.customSize ? row('Custom', escapeHtml(d.piece.customSize)) : '',
   ].join('');
 
-  const artworkRow = d.artwork
-    ? row(
-        'File',
-        `${escapeHtml(d.artwork.filename || '(unnamed)')}${d.artwork.size ? ` <span style="color:#64748B;">— ${escapeHtml(formatBytes(d.artwork.size))}</span>` : ''}<br/><span style="color:#64748B;font-size:12px;">Attached to this email.</span>`
-      )
-    : row('File', '<span style="color:#64748B;">None attached</span>');
+  // Artwork row — render either a "Download" link (when readUrl is present)
+  // or a metadata-only line. The readUrl is a 7-day presigned R2 URL.
+  let artworkRowValue;
+  if (d.artwork) {
+    const sizeBlurb = d.artwork.sizeBytes
+      ? ` <span style="color:#64748B;">— ${escapeHtml(formatBytes(d.artwork.sizeBytes))}</span>`
+      : '';
+    if (d.artwork.readUrl) {
+      artworkRowValue =
+        `<a href="${escapeHtml(d.artwork.readUrl)}" style="color:#D64045;font-weight:600;">` +
+        `Download ${escapeHtml(d.artwork.filename || 'artwork')}</a>${sizeBlurb}` +
+        `<br/><span style="color:#64748B;font-size:12px;">Link expires in 7 days — download promptly.</span>`;
+    } else {
+      artworkRowValue =
+        `${escapeHtml(d.artwork.filename || '(unnamed)')}${sizeBlurb}` +
+        `<br/><span style="color:#64748B;font-size:12px;">No download link — file metadata only.</span>`;
+    }
+  } else {
+    artworkRowValue = '<span style="color:#64748B;">None uploaded</span>';
+  }
+  const artworkRow = row('File', artworkRowValue);
   const designRows = [
     row('Path', escapeHtml(describeDesign(d.design))),
     artworkRow,
