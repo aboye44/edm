@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import EDDMMapper from './components/EDDMMapper/EDDMMapper';
 import ErrorBoundary from './components/ErrorBoundary';
 import { PlannerProvider } from './v2/PlannerContext';
@@ -9,6 +9,24 @@ import Step3Review from './v2/steps/Step3Review';
 import Step4Mail from './v2/steps/Step4Mail';
 import V2Shell from './v2/V2Shell';
 import './App.css';
+
+/**
+ * Scroll the window to the top on every route change. Without this
+ * React Router preserves the previous page's scroll position when the
+ * new step mounts — particularly noticeable on mobile when navigating
+ * Step 1 → Step 2 lands the user mid-page instead of at the title.
+ *
+ * Mounted inside <BrowserRouter> so useLocation works.
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname]);
+  return null;
+}
 
 function App() {
   return (
@@ -21,6 +39,7 @@ function App() {
        * subpath without needing an environment-specific build.
        */}
       <BrowserRouter>
+        <ScrollToTop />
         <div className="App">
           <Routes>
             {/* Existing production tool — DO NOT MODIFY */}

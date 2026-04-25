@@ -475,6 +475,9 @@
   flex-direction: column;
   background: var(--mpa-v2-paper-soft);
   overflow-y: auto;
+  /* Required for the CTA's position:sticky below to stick relative to
+     this scroll container. */
+  position: relative;
 }
 
 .step2-sidebar-title {
@@ -584,6 +587,22 @@
   font-family: var(--mpa-v2-font-sans);
   box-shadow: var(--mpa-v2-shadow-cta-red-desktop);
   width: 100%;
+  /* Pinned to the bottom of the scrollable sidebar so the user never
+     has to scroll to reach "Continue to review". When the sidebar
+     content is shorter than the viewport it sits naturally at the
+     bottom; when it overflows, sticky kicks in and the CTA stays in
+     view as the upper content scrolls under it. The negative side/
+     bottom margins extend the CTA's background to the sidebar edges
+     so content doesn't bleed through the gap during scroll. */
+  position: sticky;
+  bottom: 0;
+  margin-left: -28px;
+  margin-right: -28px;
+  margin-bottom: -28px;
+  padding-left: 28px;
+  padding-right: 28px;
+  padding-bottom: 28px;
+  z-index: 2;
 }
 /*
  * P1-5: disabled CTA contrast bumped to WCAG AA pass.
